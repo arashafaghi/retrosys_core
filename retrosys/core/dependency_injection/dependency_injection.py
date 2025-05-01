@@ -10,17 +10,11 @@ from typing import (
 )
 
 import inspect
-
 import warnings
-
 import threading
 import logging
-
-
 import networkx as nx
 import matplotlib.pyplot as plt
-
-
 
 from .project_types import (
     T, FactoryCallable, AsyncFactoryCallable, Lifecycle, ResolutionStrategy
@@ -133,8 +127,7 @@ class Container:
             # Check for circular dependencies
             if service_type in self._resolution_stack:
                 path = " -> ".join(
-                    [t.__name__ for t in self._resolution_stack]
-                    + [service_type.__name__]
+                    [t.__name__ for t in self._resolution_stack] + [service_type.__name__]
                 )
                 raise CircularDependencyError(f"Circular dependency detected: {path}")
 
@@ -143,6 +136,30 @@ class Container:
 
             try:
                 descriptor = self._get_descriptor(service_type, context_key)
+                
+                # Just-in-time registration for injectable classes
+                if not descriptor and hasattr(service_type, '__di_injectable__') and getattr(service_type, '__di_injectable__'):
+                    self._logger.debug(f"Auto-registering {service_type.__name__}")
+                    
+                    # Extract metadata from the class
+                    lifecycle = getattr(service_type, '__di_lifecycle__', Lifecycle.SINGLETON)
+                    ctx_key = getattr(service_type, '__di_context_key__', context_key)
+                    is_async = getattr(service_type, '__di_is_async__', False)
+                    resolution_strategy = getattr(service_type, '__di_resolution_strategy__', 
+                                            ResolutionStrategy.EAGER)
+                    
+                    # Register it automatically
+                    self.register(
+                        service_type, 
+                        lifecycle=lifecycle,
+                        context_key=ctx_key,
+                        is_async=is_async,
+                        resolution_strategy=resolution_strategy
+                    )
+                    
+                    # Get the descriptor again
+                    descriptor = self._get_descriptor(service_type, context_key)
+                
                 if not descriptor:
                     raise DependencyNotFoundError(
                         f"No registration found for {service_type.__name__}"
@@ -198,88 +215,112 @@ class Container:
 
     async def resolve_async(self, service_type: Type[T], context_key: str = "") -> T:
         """Asynchronously resolve a service from the container."""
-        # If we're in test mode, check for mocks first
-        if self._test_mode and service_type in self._mock_instances:
-            return self._mock_instances[service_type]
+        with self._lock:
+            # If we're in test mode, check for mocks first
+            if self._test_mode and service_type in self._mock_instances:
+                return self._mock_instances[service_type]
 
-        # Check for circular dependencies
-        if service_type in self._resolution_stack:
-            path = " -> ".join(
-                [t.__name__ for t in self._resolution_stack] + [service_type.__name__]
-            )
-            raise CircularDependencyError(f"Circular dependency detected: {path}")
-
-        # Add to resolution stack for circular dependency detection
-        self._resolution_stack.append(service_type)
-
-        try:
-            descriptor = self._get_descriptor(service_type, context_key)
-            if not descriptor:
-                raise DependencyNotFoundError(
-                    f"No registration found for {service_type.__name__}"
+            # Check for circular dependencies
+            if service_type in self._resolution_stack:
+                path = " -> ".join(
+                    [t.__name__ for t in self._resolution_stack] + [service_type.__name__]
                 )
+                raise CircularDependencyError(f"Circular dependency detected: {path}")
 
-            # For singletons, check if we already have an instance
-            if (
-                descriptor.lifecycle == Lifecycle.SINGLETON
-                and descriptor.instance is not None
-            ):
-                return descriptor.instance
+            # Add to resolution stack for circular dependency detection
+            self._resolution_stack.append(service_type)
 
-            self._logger.debug(f"Async resolving {service_type.__name__}")
-
-            # Use factory if provided
-            if descriptor.factory:
-                if descriptor.is_async:
-                    instance = await descriptor.factory(self)
-                else:
-                    instance = descriptor.factory(self)
-            else:
-                # Create a new instance using constructor injection
-                instance = await self._create_instance_async(
-                    descriptor.implementation_type
-                )
-
-            # Apply property injections asynchronously
-            for prop_name, prop_type in descriptor.property_injections.items():
-                prop_descriptor = self._get_descriptor(prop_type, context_key)
-                if prop_descriptor and prop_descriptor.is_async:
-                    setattr(
-                        instance,
-                        prop_name,
-                        await self.resolve_async(prop_type, context_key),
+            try:
+                descriptor = self._get_descriptor(service_type, context_key)
+                
+                # Just-in-time registration for injectable classes
+                if not descriptor and hasattr(service_type, '__di_injectable__') and getattr(service_type, '__di_injectable__'):
+                    self._logger.debug(f"Auto-registering {service_type.__name__}")
+                    
+                    # Extract metadata from the class
+                    lifecycle = getattr(service_type, '__di_lifecycle__', Lifecycle.SINGLETON)
+                    ctx_key = getattr(service_type, '__di_context_key__', context_key)
+                    is_async = getattr(service_type, '__di_is_async__', False)
+                    resolution_strategy = getattr(service_type, '__di_resolution_strategy__', 
+                                            ResolutionStrategy.EAGER)
+                    
+                    # Register it automatically
+                    self.register(
+                        service_type, 
+                        lifecycle=lifecycle,
+                        context_key=ctx_key,
+                        is_async=is_async,
+                        resolution_strategy=resolution_strategy
                     )
-                else:
-                    setattr(instance, prop_name, self.resolve(prop_type, context_key))
+                    
+                    # Get the descriptor again
+                    descriptor = self._get_descriptor(service_type, context_key)
+                
+                if not descriptor:
+                    raise DependencyNotFoundError(
+                        f"No registration found for {service_type.__name__}"
+                    )
 
-            # Apply method injections (async methods not supported yet)
-            for method_name, param_types in descriptor.method_injections.items():
-                method = getattr(instance, method_name)
-                params = {}
-                for name, typ in param_types.items():
-                    param_descriptor = self._get_descriptor(typ, context_key)
-                    if param_descriptor and param_descriptor.is_async:
-                        params[name] = await self.resolve_async(typ, context_key)
+                # For singletons, check if we already have an instance
+                if (
+                    descriptor.lifecycle == Lifecycle.SINGLETON
+                    and descriptor.instance is not None
+                ):
+                    return descriptor.instance
+
+                self._logger.debug(f"Async resolving {service_type.__name__}")
+
+                # Use factory if provided
+                if descriptor.factory:
+                    if descriptor.is_async:
+                        instance = await descriptor.factory(self)
                     else:
-                        params[name] = self.resolve(typ, context_key)
-                method(**params)
-
-            # Call on_init if provided
-            if descriptor.on_init:
-                if descriptor.is_async:
-                    await descriptor.on_init(instance)
+                        instance = descriptor.factory(self)
                 else:
-                    descriptor.on_init(instance)
+                    # Create a new instance using constructor injection
+                    instance = await self._create_instance_async(
+                        descriptor.implementation_type
+                    )
 
-            # Store singleton instances
-            if descriptor.lifecycle == Lifecycle.SINGLETON:
-                descriptor.instance = instance
+                # Apply property injections asynchronously
+                for prop_name, prop_type in descriptor.property_injections.items():
+                    prop_descriptor = self._get_descriptor(prop_type, context_key)
+                    if prop_descriptor and prop_descriptor.is_async:
+                        setattr(
+                            instance,
+                            prop_name,
+                            await self.resolve_async(prop_type, context_key),
+                        )
+                    else:
+                        setattr(instance, prop_name, self.resolve(prop_type, context_key))
 
-            return instance
-        finally:
-            # Remove from resolution stack
-            self._resolution_stack.pop()
+                # Apply method injections (async methods not supported yet)
+                for method_name, param_types in descriptor.method_injections.items():
+                    method = getattr(instance, method_name)
+                    params = {}
+                    for name, typ in param_types.items():
+                        param_descriptor = self._get_descriptor(typ, context_key)
+                        if param_descriptor and param_descriptor.is_async:
+                            params[name] = await self.resolve_async(typ, context_key)
+                        else:
+                            params[name] = self.resolve(typ, context_key)
+                    method(**params)
 
+                # Call on_init if provided
+                if descriptor.on_init:
+                    if descriptor.is_async:
+                        await descriptor.on_init(instance)
+                    else:
+                        descriptor.on_init(instance)
+
+                # Store singleton instances
+                if descriptor.lifecycle == Lifecycle.SINGLETON:
+                    descriptor.instance = instance
+
+                return instance
+            finally:
+                # Remove from resolution stack
+                self._resolution_stack.pop()
     def _get_descriptor(
         self, service_type: Type, context_key: str = ""
     ) -> Optional[ServiceDescriptor]:
@@ -491,60 +532,45 @@ class Container:
         """Generate a visualization of the dependency graph."""
         graph = {}
         
-        print("\n=== Generating dependency graph ===")
-        print(f"Total registered service types: {len(self._descriptors)}")
         primitive_types = {str, int, float, bool, list, dict, set, tuple}
 
 
         # Add all registered types as nodes
         for service_type in self._descriptors:
             if service_type in primitive_types or service_type.__module__ == 'builtins':
-                print(f"Skipping primitive type node: {service_type.__name__}")
                 continue
 
             service_name = service_type.__name__
             graph[service_name] = []
-            print(f"Added node: {service_name}")
 
         # Add dependencies as edges
         for service_type, descriptors in self._descriptors.items():
             service_name = service_type.__name__
-            print(f"Processing dependencies for: {service_name} ({len(descriptors)} implementations)")
             for descriptor in descriptors:
                 impl_type = descriptor.implementation_type
-                print(f"  Implementation: {impl_type.__name__ if impl_type else 'None'}")
                 if impl_type:
                     self._add_dependencies_to_graph(graph, service_name, impl_type)
 
         # Add module services
-        print(f"Processing {len(self._modules)} modules")
         for module_name, module in self._modules.items():
-            print(f"  Module: {module_name or module.name}")
             for service_type, descriptors in getattr(module._container, '_descriptors', {}).items():
                 
                 if service_type in primitive_types or service_type.__module__ == 'builtins':
-                    print(f"  Skipping primitive module type: {service_type.__name__}")
                     continue
                 service_name = service_type.__name__
                 if service_name not in graph:
                     graph[service_name] = []
-                    print(f"  Added module node: {service_name}")
                 
                 for descriptor in descriptors:
                     impl_type = descriptor.implementation_type
                     if impl_type:
                         self._add_dependencies_to_graph(graph, service_name, impl_type)
         
-        # Print the final graph structure
-        print("\n=== Final dependency graph ===")
-        for service, deps in sorted(graph.items()):
-            print(f"{service} -> {', '.join(deps) if deps else 'No dependencies'}")
         
         return graph
 
     def _add_dependencies_to_graph(self, graph: Dict[str, List[str]], source_name: str, implementation_type: Type) -> None:
         """Add dependencies of a type to the graph."""
-        print(f"  Analyzing dependencies of {implementation_type.__name__}")
         
         # Primitive types to exclude from dependency graph
         primitive_types = {str, int, float, bool, list, dict, set, tuple}
@@ -552,7 +578,6 @@ class Container:
         # Add constructor dependencies
         if hasattr(implementation_type, "__init__") and implementation_type.__init__ is not object.__init__:
             sig = inspect.signature(implementation_type.__init__)
-            print(f"    Constructor params: {[name for name, _ in sig.parameters.items() if name != 'self']}")
             
             for name, param in sig.parameters.items():
                 if name != "self" and param.annotation is not inspect.Parameter.empty:
@@ -561,18 +586,14 @@ class Container:
                         dep_type = param.annotation.__args__[0]
                         # Skip primitive types
                         if dep_type in primitive_types or dep_type.__module__ == 'builtins':
-                            print(f"    Skipping primitive type: {dep_type.__name__}")
                             continue
                         dep_name = dep_type.__name__
-                        print(f"    Lazy dependency: {name} -> {dep_name}")
                     else:
                         dep_type = param.annotation
                         # Skip primitive types
                         if dep_type in primitive_types or dep_type.__module__ == 'builtins':
-                            print(f"    Skipping primitive type: {dep_type.__name__}")
                             continue
                         dep_name = dep_type.__name__
-                        print(f"    Direct dependency: {name} -> {dep_name}")
 
                     if dep_name not in graph[source_name]:
                         graph[source_name].append(dep_name)

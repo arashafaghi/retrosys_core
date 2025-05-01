@@ -143,7 +143,6 @@ class DatabaseModule:
 async def main():
     # Create the container
     container = Container()
-    container.register_injectables(sys.modules[__name__])
     # Register services
     container.register(IDatabase, PostgresDatabase, Lifecycle.SINGLETON, is_async=True)
     container.register(ILogger, ConsoleLogger)
