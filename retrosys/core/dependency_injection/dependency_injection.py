@@ -45,7 +45,7 @@ class Container:
         service_type: Type[T],
         implementation_type: Optional[Type] = None,
         lifecycle: Lifecycle = Lifecycle.SINGLETON,
-        factory: Optional[Union[FactoryCallable, AsyncFactoryCallable]] = None,
+        factory: Optional[Union[FactoryCallable, AsyncFactoryCallable]] = None, #this is self factory, lamda to use.
         context_key: str = "",
         is_async: bool = False,
         resolution_strategy: ResolutionStrategy = ResolutionStrategy.EAGER,

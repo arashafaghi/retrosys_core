@@ -1,0 +1,81 @@
+The register method is the primary way you tell the container how to create and manage instances of a specific service or dependency when they are requested.
+
+Here's an explanation of its parameters and what it does:
+
+Parameters:
+
+    service_type: Type[T]: This is the type or interface you will ask the container for later when you need an instance. For example, if you have an EmailSender class or an IEmailSender interface, this would be EmailSender or IEmailSender. It's the "what you ask for".
+    implementation_type: Optional[Type] = None: This is the actual concrete class that the container should instantiate when service_type is requested. If you are registering a concrete class directly, you can omit this (it defaults to service_type). If you are mapping an interface to an implementation (e.g., service_type=IEmailSender, implementation_type=SmtpEmailSender), you provide the concrete class here.
+    lifecycle: Lifecycle = Lifecycle.SINGLETON: This specifies how the container should manage the instance(s) for this registration. Lifecycle.SINGLETON (the default) means only one instance will be created and reused. Other options might exist in the Lifecycle enum (like TRANSIENT for a new instance each time).
+    factory: Optional[Union[FactoryCallable, AsyncFactoryCallable]] = None: An optional function or callable that the container should execute to create the instance, instead of calling implementation_type(). This is used for complex creation logic or when providing pre-initialized instances (as in our previous lambda example). FactoryCallable and AsyncFactoryCallable are type hints for functions that may accept the container itself as an argument.
+    context_key: str = "": An optional string key used to differentiate registrations for the same service_type. This allows you to register multiple implementations of IEmailSender (e.g., one for "marketing" and one for "transactional") and request them specifically like container.resolve(IEmailSender, context_key="marketing").
+    is_async: bool = False: Indicates if resolving this service involves await. It's automatically set to True if a factory is an async function. If you're providing an implementation_type that needs await in its __init__ or on_init, you might need to set this explicitly (though the _create_instance_async method suggests async constructors are handled if the descriptor is marked is_async).
+    resolution_strategy: ResolutionStrategy = ResolutionStrategy.EAGER: Configures how the service should be resolved, possibly related to when dependencies are injected (e.g., immediately vs. lazily). Defaults to EAGER.
+    on_init: Optional[Callable[[Any], Optional[Awaitable[None]]]] = None: An optional function to call after the instance of the service is created and its constructor/factory finishes, but before it's returned by resolve. Can be used for post-construction setup. Can be async if is_async is True.
+    on_destroy: Optional[Callable[[Any], Optional[Awaitable[None]]]] = None: An optional function to call when the container is being shut down or disposed of. Useful for cleanup logic (closing connections, etc.). Can be async if is_async is True.
+
+What the Method Does:
+
+    It acquires a thread lock (self._lock) to ensure that registrations are safe in a multi-threaded environment.
+    It determines the actual implementation_type if it wasn't explicitly provided.
+    It detects if an async factory was provided and sets is_async accordingly if it was previously False.
+    It creates a ServiceDescriptor object. This object is like a little record that holds all the configuration details you provided for this specific registration (the service_type, implementation_type, lifecycle, factory, context_key, etc.).
+    It checks if the service_type already exists as a key in the container's internal dictionary (self._descriptors). If not, it creates an empty list for that type.
+    It adds the newly created ServiceDescriptor to the list of descriptors associated with the service_type in self._descriptors. This allows the container to store potentially multiple ways to resolve the same service_type (distinguished by context_key).
+    It logs the registration action.
+    It returns self (the container instance), which allows you to chain .register() calls together.
+
+
+    # Assume your Config class is registered in the container, e.g.:
+# container.register(Config, lifecycle=Lifecycle.SINGLETON)
+
+# Assume your createDbFactory function is defined like this:
+# def createDbFactory(config: Config) -> Union[ChromaDBInstance, SQLInstance]:
+#     """Factory that creates DB instance based on config."""
+#     # ... implementation ...
+#     pass
+
+# Let's assume you have an interface or base class for your DB instances
+# For example: class DatabaseInstance(ABC): ...
+
+container = Container()
+# ... register Config ...
+
+# Now register your database service using a wrapper factory
+container.register(
+    DatabaseInstance, # Registering the interface or expected type
+    factory=lambda container: createDbFactory(container.resolve(Config)), # <-- This is the wrapper factory
+    lifecycle=Lifecycle.SINGLETON # Or whatever lifecycle is appropriate (e.g., a single connection)
+)
+
+class iuser(ABC):
+    @abstractmethod
+    def __init__(self, logger: ILogger):
+        pass
+    @abstractmethod
+    def some_method(self):
+        pass
+class User(iuser):
+    def __init__(self, logger: ConsoleLogger):
+        self.logger = logger
+        print("User created")
+        
+        self.name = "Default User"
+    def some_method(self):
+        self.logger.log("something")
+    
+    container.register(iuser, User, Lifecycle.SINGLETON) #works but if def __init__(self, logger: ConsoleLogger)  changes to ilogger then no instance of that is available in container, need to register it or use factory 
+    u = container.resolve(iuser)
+    u.some_method()
+
+    Factory example : 
+    container.register(
+    iuser, 
+    User, 
+    factory=lambda c: User(
+        ConsoleLogger(),  # Direct instantiation 
+        DatabaseService("connection-string"),  # Another direct instantiation
+        c.resolve(ConfigService),  # Resolved from container
+        "some-literal-value"  # Literal values are fine too
+    )
+)
