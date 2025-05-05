@@ -79,3 +79,186 @@ class User(iuser):
         "some-literal-value"  # Literal values are fine too
     )
 )
+
+
+
+
+method and property injection : 
+import asyncio
+from abc import ABC, abstractmethod
+from retrosys.core.dependency_injection import (
+    Container, injectable, inject_property, inject_method, Lifecycle
+)
+
+# --- Interfaces ---
+class ILogger(ABC):
+    @abstractmethod
+    def log(self, message: str) -> None: pass
+
+class IUserRepository(ABC):
+    @abstractmethod
+    def get_user(self, user_id: int) -> dict: pass
+    
+class IEmailService(ABC):
+    @abstractmethod
+    def send_email(self, to: str, subject: str, body: str) -> bool: pass
+
+class INotificationService(ABC):
+    @abstractmethod
+    def notify(self, user_id: int, message: str) -> None: pass
+
+# --- Implementations ---
+@injectable()
+class ConsoleLogger(ILogger):
+    def log(self, message: str) -> None:
+        print(f"[LOG] {message}")
+
+@injectable()
+class InMemoryUserRepository(IUserRepository):
+    def __init__(self):
+        self.users = {
+            1: {"id": 1, "name": "John", "email": "john@example.com"},
+            2: {"id": 2, "name": "Jane", "email": "jane@example.com"}
+        }
+    
+    def get_user(self, user_id: int) -> dict:
+        return self.users.get(user_id, {})
+
+@injectable()
+class SmtpEmailService(IEmailService):
+    def send_email(self, to: str, subject: str, body: str) -> bool:
+        print(f"Sending email to {to}: {subject}")
+        return True
+
+@injectable()
+class PushNotificationService(INotificationService):
+    def notify(self, user_id: int, message: str) -> None:
+        print(f"Push notification to user {user_id}: {message}")
+
+# --- User Service with Property and Method Injection ---
+@injectable(lifecycle=Lifecycle.SINGLETON)
+class UserService:
+    def __init__(self, user_repo: IUserRepository):
+        # Constructor injection for required dependencies
+        self.user_repo = user_repo
+        print("UserService created with repository")
+    
+    # Property injection for optional dependencies
+    @inject_property(ILogger)
+    def logger(self):
+        # This will be injected by the container
+        pass
+    
+    # Method injection - dependencies just for this method
+    @inject_method({"email_service": IEmailService, "notification_service": INotificationService})
+    def notify_user(self, user_id: int, message: str, email_service, notification_service):
+        # Get user details
+        user = self.user_repo.get_user(user_id)
+        if not user:
+            self.logger.log(f"User {user_id} not found")
+            return False
+        
+        # Send email
+        email_service.send_email(
+            user["email"], 
+            "New Notification", 
+            message
+        )
+        
+        # Send push notification
+        notification_service.notify(user_id, message)
+        
+        self.logger.log(f"User {user_id} notified successfully")
+        return True
+    
+    def get_user_details(self, user_id: int) -> dict:
+        user = self.user_# filepath: /home/toon/repo/retrosys_primary/example_injections.py
+import asyncio
+from abc import ABC, abstractmethod
+from retrosys.core.dependency_injection import (
+    Container, injectable, inject_property, inject_method, Lifecycle
+)
+
+# --- Interfaces ---
+class ILogger(ABC):
+    @abstractmethod
+    def log(self, message: str) -> None: pass
+
+class IUserRepository(ABC):
+    @abstractmethod
+    def get_user(self, user_id: int) -> dict: pass
+    
+class IEmailService(ABC):
+    @abstractmethod
+    def send_email(self, to: str, subject: str, body: str) -> bool: pass
+
+class INotificationService(ABC):
+    @abstractmethod
+    def notify(self, user_id: int, message: str) -> None: pass
+
+# --- Implementations ---
+@injectable()
+class ConsoleLogger(ILogger):
+    def log(self, message: str) -> None:
+        print(f"[LOG] {message}")
+
+@injectable()
+class InMemoryUserRepository(IUserRepository):
+    def __init__(self):
+        self.users = {
+            1: {"id": 1, "name": "John", "email": "john@example.com"},
+            2: {"id": 2, "name": "Jane", "email": "jane@example.com"}
+        }
+    
+    def get_user(self, user_id: int) -> dict:
+        return self.users.get(user_id, {})
+
+@injectable()
+class SmtpEmailService(IEmailService):
+    def send_email(self, to: str, subject: str, body: str) -> bool:
+        print(f"Sending email to {to}: {subject}")
+        return True
+
+@injectable()
+class PushNotificationService(INotificationService):
+    def notify(self, user_id: int, message: str) -> None:
+        print(f"Push notification to user {user_id}: {message}")
+
+# --- User Service with Property and Method Injection ---
+@injectable(lifecycle=Lifecycle.SINGLETON)
+class UserService:
+    def __init__(self, user_repo: IUserRepository):
+        # Constructor injection for required dependencies
+        self.user_repo = user_repo
+        print("UserService created with repository")
+    
+    # Property injection for optional dependencies
+    @inject_property(ILogger)
+    def logger(self):
+        # This will be injected by the container
+        pass
+    
+    # Method injection - dependencies just for this method
+    @inject_method({"email_service": IEmailService, "notification_service": INotificationService})
+    def notify_user(self, user_id: int, message: str, email_service, notification_service):
+        # Get user details
+        user = self.user_repo.get_user(user_id)
+        if not user:
+            self.logger.log(f"User {user_id} not found")
+            return False
+        
+        # Send email
+        email_service.send_email(
+            user["email"], 
+            "New Notification", 
+            message
+        )
+        
+        # Send push notification
+        notification_service.notify(user_id, message)
+        
+        self.logger.log(f"User {user_id} notified successfully")
+        return True
+    
+    def get_user_details(self, user_id: int) -> dict:
+        user = self.user_

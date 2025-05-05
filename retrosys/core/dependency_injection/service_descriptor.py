@@ -20,7 +20,7 @@ class ServiceDescriptor:
     on_destroy: Optional[Callable[[Any], Optional[Awaitable[None]]]] = None
     
     # Dependencies to inject via properties or methods
-    property_injections: Dict[str, Type] = field(default_factory=dict)
+    property_injections: Dict[str, Type] = field(default_factory=dict) #field to ensure a dict for each instance
     method_injections: Dict[str, Dict[str, Type]] = field(default_factory=dict)
     
     def is_resolved(self) -> bool:

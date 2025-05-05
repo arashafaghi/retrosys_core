@@ -1,3 +1,4 @@
+import functools
 from typing import Type, Dict
 import inspect
 from .project_types import Lifecycle, ResolutionStrategy
@@ -25,23 +26,91 @@ def injectable(lifecycle: Lifecycle = Lifecycle.SINGLETON,
 
 def inject_property(service_type: Type):
     """Decorator to inject a dependency as a property."""
-    def decorator(cls):
-        if not hasattr(cls, '__di_property_injections__'):
-            setattr(cls, '__di_property_injections__', {})
+    def decorator(prop_fn):
+        prop_name = prop_fn.__name__
         
-        property_injections = getattr(cls, '__di_property_injections__')
+        class PropertyDescriptor:
+            def __init__(self):
+                self.service_type = service_type
+                
+            def __get__(self, obj, objtype=None):
+                if obj is None:  # Class access
+                    return self
+                
+                # Get the backing field
+                backing_field = f"_{prop_name}"
+                value = getattr(obj, backing_field, None)
+                
+                # If not yet injected, store None - container will inject later
+                if value is None:
+                    # When the container resolves the object, it will
+                    # check for property injections and handle them
+                    pass
+                
+                return value
+                
+            def __set__(self, obj, value):
+                setattr(obj, f"_{prop_name}", value)
+            
+            def __set_name__(self, owner, name):
+                # Store injection metadata on the class
+                if not hasattr(owner, '__di_property_injections__'):
+                    setattr(owner, '__di_property_injections__', {})
+                getattr(owner, '__di_property_injections__')[name] = service_type
         
-        def property_wrapper(prop_name):
-            property_injections[prop_name] = service_type
-        
-        return property_wrapper
+        return PropertyDescriptor()
+    
     return decorator
-
-def inject_method(param_types: Dict[str, Type]):
-    """Decorator to inject dependencies into a method."""
-    def decorator(func):
-        setattr(func, '__di_inject_params__', param_types)
-        return func
+def inject_method(params: Dict[str, Type]):
+    """Decorator to inject dependencies as method parameters."""
+    def decorator(method):
+        method_name = method.__name__
+        sig = inspect.signature(method)
+        
+        @functools.wraps(method)
+        def wrapper(self, **kwargs):
+            # Create method parameters with injected dependencies
+            method_params = {}
+            
+            # Inject dependencies that aren't provided in kwargs
+            for param_name, param_type in params.items():
+                if param_name not in kwargs:
+                    # Try to get the container from the instance's context
+                    container = None
+                    
+                    # Look for container in predefined locations
+                    for attr_name in ['_container', '_di_container', '__container__']:
+                        if hasattr(self, attr_name):
+                            container = getattr(self, attr_name)
+                            break
+                    
+                    # If we have a container, resolve the dependency
+                    if container:
+                        method_params[param_name] = container.resolve(param_type)
+                    else:
+                        # Without container, try to lookup from registry if registered 
+                        from retrosys.core.dependency_injection.dependency_injection import Container
+                        c = Container()
+                        method_params[param_name] = c.resolve(param_type)
+            
+            # Combine with explicitly provided parameters
+            method_params.update(kwargs)
+            
+            # Call the original method with all parameters
+            return method(self, **method_params)
+            
+        # Store metadata for the DI container to use during resolution
+        setattr(wrapper, '__di_method_params__', params)
+        
+        # Store on the class when the method is added to it
+        def __set_name__(owner, name):
+            if not hasattr(owner, '__di_method_injections__'):
+                setattr(owner, '__di_method_injections__', {})
+            getattr(owner, '__di_method_injections__')[name] = params
+            
+        wrapper.__set_name__ = __set_name__
+        
+        return wrapper
     return decorator
 
 def register_module(container):

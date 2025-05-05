@@ -7,10 +7,10 @@ from retrosys.core.dependency_injection import (
     injectable, inject_property, inject_method, register_module
 )
 
-# Set up logging
+#Set up logging
 logging.basicConfig(level=logging.INFO)
 
-# Define some interfaces and implementations
+#Define some interfaces and implementations
 class IDatabase:
     async def connect(self) -> bool:
         pass
@@ -38,7 +38,7 @@ class PostgresDatabase(IDatabase):
         
     async def connect(self) -> bool:
         print(f"Connecting to database at {self.connection_string}")
-        # Simulate connection delay
+        #Simulate connection delay
         await asyncio.sleep(0.1)
         self.connected = True
         return True
@@ -47,9 +47,9 @@ class PostgresDatabase(IDatabase):
         if not self.connected:
             await self.connect()
         print(f"Executing query: {sql}")
-        # Simulate query delay
+        #Simulate query delay
         await asyncio.sleep(0.05)
-        # Return dummy data
+       # Return dummy data
         if "users" in sql.lower():
             return [{"id": 1, "name": "John"}, {"id": 2, "name": "Jane"}]
         return []
@@ -88,7 +88,7 @@ class UserRepository(IUserRepository):
         results = await self.db.query(f"SELECT * FROM users WHERE id = {user_id}")
         return results[0] if results else None
 
-# Example with lazy resolution
+#Example with lazy resolution
 @injectable(lifecycle=Lifecycle.TRANSIENT)
 class UserService:
     def __init__(self, lazy_repo: Lazy[IUserRepository]):
@@ -96,11 +96,11 @@ class UserService:
         print("UserService created with lazy repository")
         
     async def get_users(self) -> List[dict]:
-        # Repository only resolved when needed
+       # Repository only resolved when needed
         repo = await self.lazy_repo.async_resolve()
         return await repo.get_all_users()
 
-# Example with property injection
+#Example with property injection
 @injectable(lifecycle=Lifecycle.SINGLETON)
 class AnalyticsService:
     def __init__(self):
@@ -115,7 +115,7 @@ class AnalyticsService:
         if self.logger:
             self.logger.log(f"Event: {event_name}, Data: {data}")
 
-# Example with method injection
+#Example with method injection
 @injectable(lifecycle=Lifecycle.SINGLETON)
 class NotificationService:
     def __init__(self):
@@ -126,7 +126,7 @@ class NotificationService:
         print(f"Sending notification to user {user_id}: {message}")
         return True
 
-# Example with modules
+#Example with modules
 @register_module(Container())
 class DatabaseModule:
     @injectable(lifecycle=Lifecycle.SINGLETON, is_async=True)
@@ -157,82 +157,80 @@ class User(iuser):
     def some_method(self):
         self.logger.log("something")
 
-# Main application example
+#
 async def main():
-    # Create the container
     container = Container()
-    # Register services
-    # container.register(IDatabase, PostgresDatabase, Lifecycle.SINGLETON, is_async=True)
-    # container.register(ILogger, ConsoleLogger)
-    # container.register(IUserRepository, UserRepository, is_async=True)
-    # container.register_factory(
-    #     str, 
-    #     lambda c: "postgres://localhost:5432/mydb", 
-    #     Lifecycle.SINGLETON,
-    #     context_key="connection_string"
-    # )
+    container.register(IDatabase, PostgresDatabase, Lifecycle.SINGLETON, is_async=True)
+    container.register(ILogger, ConsoleLogger)
+    container.register(IUserRepository, UserRepository, is_async=True)
+    container.register_factory(
+        str, 
+        lambda c: "postgres://localhost:5432/mydb", 
+        Lifecycle.SINGLETON,
+        context_key="connection_string"
+    )
     
-    # # Register services with the @injectable decorator
-    # # These are already registered via their decorators
+    # Register services with the @injectable decorator
+    # These are already registered via their decorators
     
-    # # Create a module and register it
-    # db_module = Module("database")
-    # container.register_module(db_module)
+    # Create a module and register it
+    db_module = Module("database")
+    container.register_module(db_module)
     
-    # # Resolve and use services
-    # logger = container.resolve(ILogger)
-    # logger.log("Application starting")
+    # Resolve and use services
+    logger = container.resolve(ILogger)
+    logger.log("Application starting")
     
-    # # Async services must be resolved with resolve_async
-    # user_repo = await container.resolve_async(IUserRepository)
-    # users = await user_repo.get_all_users()
-    # logger.log(f"Found {len(users)} users")
+    # Async services must be resolved with resolve_async
+    user_repo = await container.resolve_async(IUserRepository)
+    users = await user_repo.get_all_users()
+    logger.log(f"Found {len(users)} users")
     
-    # # Test lazy resolution
-    # user_service = container.resolve(UserService)
-    # users_from_service = await user_service.get_users()
-    # logger.log(f"UserService found {len(users_from_service)} users")
+    # Test lazy resolution
+    user_service = container.resolve(UserService)
+    users_from_service = await user_service.get_users()
+    logger.log(f"UserService found {len(users_from_service)} users")
     
-    # # Test property injection
-    # analytics = container.resolve(AnalyticsService)
-    # analytics.track_event("app_start", {"timestamp": "2023-01-01T12:00:00"})
+    # Test property injection
+    analytics = container.resolve(AnalyticsService)
+    analytics.track_event("app_start", {"timestamp": "2023-01-01T12:00:00"})
     
-    # # Test method injection
-    # notifications = container.resolve(NotificationService)
-    # notifications.send_notification(user_repo, 1, "Hello from DI example!")
+    # Test method injection
+    notifications = container.resolve(NotificationService)
+    notifications.send_notification(user_repo, 1, "Hello from DI example!")
     
-    # # Test scoped services
-    # async with container.create_scope() as scope:
-    #     scoped_repo = await scope.resolve_async(IUserRepository)
-    #     scoped_user = await scoped_repo.get_user_by_id(1)
-    #     logger.log(f"Found user in scope: {scoped_user['name']}")
+    # Test scoped services
+    async with container.create_scope() as scope:
+        scoped_repo = await scope.resolve_async(IUserRepository)
+        scoped_user = await scoped_repo.get_user_by_id(1)
+        logger.log(f"Found user in scope: {scoped_user['name']}")
     
-    # # Test testing mode
-    # container.enable_test_mode()
+    # Test testing mode
+    container.enable_test_mode()
     
-    # # Create a mock
-    # class MockDatabase(IDatabase):
-    #     async def connect(self) -> bool:
-    #         return True
+    # Create a mock
+    class MockDatabase(IDatabase):
+        async def connect(self) -> bool:
+            return True
             
-    #     async def query(self, sql: str) -> List[dict]:
-    #         return [{"id": 999, "name": "Mock User"}]
+        async def query(self, sql: str) -> List[dict]:
+            return [{"id": 999, "name": "Mock User"}]
     
-    # # Register the mock
-    # container.mock(IDatabase, MockDatabase())
+    # Register the mock
+    container.mock(IDatabase, MockDatabase())
     
-    # # Now when resolved, the mock will be used
-    # test_repo = await container.resolve_async(IUserRepository)
-    # test_users = await test_repo.get_all_users()
-    # logger.log(f"Mock found users: {test_users}")
+    # Now when resolved, the mock will be used
+    test_repo = await container.resolve_async(IUserRepository)
+    test_users = await test_repo.get_all_users()
+    logger.log(f"Mock found users: {test_users}")
     
-    # # Visualize the dependency graph
-    # #container.visualize_dependency_graph("di_graph.png")
+    # Visualize the dependency graph
+    #container.visualize_dependency_graph("di_graph.png")
     
-    # # Cleanup
-    # #await container.dispose()
-    # logger.log("Application shutting down")
-    #logger.log("____________________________________________________!")
+    # Cleanup
+    #await container.dispose()
+    logger.log("Application shutting down")
+    logger.log("____________________________________________________!")
     container.register(iuser, User, Lifecycle.SINGLETON) 
     u = container.resolve(iuser)
     u.some_method()

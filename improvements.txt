@@ -1,0 +1,23 @@
+
+    Error handling - While you have custom exceptions, you might want to add more context in error messages, especially for constructor parameter resolution failures.
+    Documentation - Some docstrings could use examples to illustrate usage patterns.
+    Type checking - The type annotations are good, but some complex generic types might be improved for better IDE integration.
+    Performance optimization - For large applications, you might want to add caching of reflection results (signatures, annotations).
+    Thread safety - While you use a lock, concurrent resolution of complex dependency trees might still have edge cases.
+    Lazy loading enhancements - Consider making lazy dependencies more transparent by implementing __getattr__ to allow attribute access without explicit resolution.
+    Dependency replacement - You might want an API to replace existing registrations for testing or reconfiguration scenarios.
+    Service location anti-pattern - Be careful not to encourage using the container as a service locator throughout the codebase.
+
+Suggestions
+
+    Add dependency resolution validation - Implement a method to validate that all dependencies can be resolved without actually creating instances.
+    Consider container hierarchies - While you have modules, some DI containers also support parent-child relationships between containers.
+    Add factory caching - For complex factory functions, consider caching their resolution plans.
+    Configuration by convention - Add more convention-based configuration options to reduce the explicit registration code.
+    Support for generic services - Add better support for registering and resolving generic types.
+    Profile and optimize - The recursive nature of dependency resolution can become a performance bottleneck in large applications.
+    Add service descriptors - Allow adding metadata to service registrations for discovery and documentation.
+
+Overall, this is a very sophisticated DI implementation with features comparable to established DI libraries. The async support, in particular, sets it apart from many simpler implementations.
+
+
