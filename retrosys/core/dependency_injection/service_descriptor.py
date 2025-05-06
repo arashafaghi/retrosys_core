@@ -35,9 +35,20 @@ class ServiceDescriptor:
     method_injections: Dict[str, Dict[str, Type]] = field(default_factory=dict)
 
     def is_resolved(self) -> bool:
-        """Check if the service has been resolved."""
+        """Determines if the service instance has been resolved/initialized.
+
+        This method checks whether a service has been instantiated based on its lifecycle.
+        For singleton services, it verifies if the instance attribute is populated.
+        For non-singleton services, it always returns False since they are created
+        on-demand and not cached.
+
+        Returns:
+            bool: True if the service is a singleton and has been instantiated,
+                False otherwise.
+        """
+
         return (
             self.instance is not None
             if self.lifecycle == Lifecycle.SINGLETON
             else False
-        )  # checks if a singletone service is initiated.
+        )

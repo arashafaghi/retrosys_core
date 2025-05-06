@@ -11,7 +11,40 @@ def injectable(
     is_async: bool = False,
     resolution_strategy: ResolutionStrategy = ResolutionStrategy.EAGER,
 ):
-    """Decorator to mark a class as injectable."""
+    """Marks a class as injectable by the dependency injection container.
+
+    This decorator attaches special metadata attributes to a class to make it
+    recognizable by the dependency injection system. It configures how the
+    class should be instantiated, cached, and resolved by the container.
+
+    Args:
+        lifecycle: Determines how instances are created and cached. Options are:
+            - SINGLETON: One instance per container
+            - TRANSIENT: New instance per resolution
+            - SCOPED: One instance per scope
+            Defaults to Lifecycle.SINGLETON.
+        context_key: Optional key for contextual binding, allowing multiple
+            implementations of the same type. Defaults to an empty string.
+        is_async: Whether this service requires asynchronous initialization.
+            Defaults to False.
+        resolution_strategy: Whether to resolve the service eagerly or lazily.
+            Options are:
+            - EAGER: Resolve immediately when registered
+            - LAZY: Resolve only when requested
+            Defaults to ResolutionStrategy.EAGER.
+
+    Returns:
+        A decorator function that attaches DI metadata to the decorated class.
+
+    Side Effects:
+        Sets the following attributes on the decorated class:
+        - __di_injectable__: Marker indicating the class is injectable
+        - __di_lifecycle__: The lifecycle strategy
+        - __di_context_key__: The context key for disambiguating registrations
+        - __di_is_async__: Whether the class requires async initialization
+        - __di_resolution_strategy__: The resolution strategy
+        Also auto-detects async initialization based on the __init__ method.
+    """
 
     def decorator(cls):
         # Store DI metadata on the class
@@ -31,7 +64,35 @@ def injectable(
 
 
 def inject_property(service_type: Type):
-    """Decorator to inject a dependency as a property."""
+    """Creates a property that automatically resolves a dependency when accessed.
+
+    This decorator creates a descriptor that lazily resolves a dependency from
+    the container when the property is accessed. It enables property injection
+    by using a backing field to store the resolved instance.
+
+    Args:
+        service_type: The type of service to be injected when the property is accessed.
+            This should be a type (class) that is registered with the container.
+
+    Returns:
+        A property descriptor that resolves and returns the dependency when accessed.
+
+    Side Effects:
+        - Creates a backing field (with the same name as the property but prefixed with '_')
+          to store the resolved dependency.
+        - Registers the property in the class's __di_property_injections__ dictionary
+          for automatic resolution during instance creation.
+        - When accessed, attempts to resolve the dependency from the container
+          if not already resolved.
+
+    Usage Example:
+        ```python
+        class MyService:
+            @inject_property(IDatabase)
+            def database(self):
+                pass  # The method body is not used
+        ```
+    """
 
     def decorator(prop_fn):
         prop_name = prop_fn.__name__
@@ -81,7 +142,38 @@ def inject_property(service_type: Type):
 
 
 def inject_method(params: Dict[str, Type]):
-    """Decorator to inject dependencies as method parameters."""
+    """Automatically injects dependencies as parameters to a method.
+
+    This decorator allows method parameters to be automatically injected from the
+    dependency injection container. It wraps the original method and resolves the
+    specified dependencies before calling it, unless they are explicitly provided
+    in the method call.
+
+    Args:
+        params: A dictionary mapping parameter names to their types. Each entry
+            specifies a parameter to be injected and the type of service to resolve
+            from the container.
+
+    Returns:
+        A decorated method that automatically resolves and injects dependencies.
+
+    Side Effects:
+        - Wraps the original method to intercept calls and inject dependencies.
+        - Registers the method in the class's __di_method_injections__ dictionary
+          for automatic resolution during instance creation.
+        - When called, resolves dependencies from the container if not explicitly provided.
+        - Attempts to find a container reference from various common attribute names
+          or creates a new container if none is found.
+
+    Usage Example:
+        ```python
+        class MyService:
+            @inject_method({'database': IDatabase, 'logger': ILogger})
+            def process_data(self, data, database, logger):
+                # database and logger are automatically injected
+                pass
+        ```
+    """
 
     def decorator(method):
         # method_name = method.__name__
@@ -137,7 +229,46 @@ def inject_method(params: Dict[str, Type]):
 
 
 def register_module(container):
-    """Register all injectables from a module."""
+    """Scans a class for injectable components and registers them with a container.
+
+    This decorator examines a class (typically a module definition class) and finds
+    all of its member classes that have been marked as injectable using the @injectable
+    decorator. It creates a Module instance and registers all discovered injectable
+    components with that module, then registers the module with the provided container.
+
+    This enables organizing related services into modules for better structuring of
+    the dependency injection system.
+
+    Args:
+        container: The dependency injection container to register the module with.
+            This should be an instance of Container.
+
+    Returns:
+        A decorator function that processes a class and returns it after registering
+        all its injectable members.
+
+    Raises:
+        TypeError: If the decorated object is not a class.
+
+    Side Effects:
+        - Creates a new Module instance named after the decorated class.
+        - Registers all injectable members of the class with the module.
+        - Registers any property and method injections for the members.
+        - Registers the completed module with the provided container.
+
+    Usage Example:
+        ```python
+        @register_module(container)
+        class DataModule:
+            @injectable()
+            class DatabaseService:
+                pass
+
+            @injectable()
+            class RepositoryService:
+                pass
+        ```
+    """
 
     def decorator(module_class):
         if not inspect.isclass(module_class):
