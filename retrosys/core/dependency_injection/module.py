@@ -59,28 +59,30 @@ class Module:
         """Get the service descriptor for a type."""
         return self._container._get_descriptor(service_type, context_key)
         
-    def resolve(self, service_type: Type[T], context_key: str = "") -> Optional[T]:
+    def resolve(self, service_type: Type[T], context_key: str = "") -> T:
         """Resolve a service from the module."""
-        try:
+        # First check local module container
+        descriptor = self._container._get_descriptor(service_type, context_key)
+        if descriptor:
             return self._container.resolve(service_type, context_key)
-        except (DependencyNotFoundError, AsyncInitializationError):
-            # If the parent container is set, try to resolve from it
-            if self.parent_container:
-                try:
-                    return self.parent_container.resolve(service_type, context_key)
-                except (DependencyNotFoundError, AsyncInitializationError):
-                    return None
-            return None
+        
+        # Then check parent container if available
+        if self.parent_container:
+            return self.parent_container.resolve(service_type, context_key)
+        
+        # If no parent and not found locally, raise exception
+        raise DependencyNotFoundError(f"No registration found for {service_type.__name__}")
             
-    async def resolve_async(self, service_type: Type[T], context_key: str = "") -> Optional[T]:
+    async def resolve_async(self, service_type: Type[T], context_key: str = "") -> T:
         """Async resolve a service from the module."""
-        try:
+        # First check local module container
+        descriptor = self._container._get_descriptor(service_type, context_key)
+        if descriptor:
             return await self._container.resolve_async(service_type, context_key)
-        except DependencyNotFoundError:
-            # If the parent container is set, try to resolve from it
-            if self.parent_container:
-                try:
-                    return await self.parent_container.resolve_async(service_type, context_key)
-                except DependencyNotFoundError:
-                    return None
-            return None
+        
+        # Then check parent container if available
+        if self.parent_container:
+            return await self.parent_container.resolve_async(service_type, context_key)
+        
+        # If no parent and not found locally, raise exception
+        raise DependencyNotFoundError(f"No registration found for {service_type.__name__}")

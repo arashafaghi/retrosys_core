@@ -39,13 +39,24 @@ def inject_property(service_type: Type):
                 
                 # Get the backing field
                 backing_field = f"_{prop_name}"
+                
+                # Create backing field if it doesn't exist
+                if not hasattr(obj, backing_field):
+                    setattr(obj, backing_field, None)
+                    
                 value = getattr(obj, backing_field, None)
                 
-                # If not yet injected, store None - container will inject later
-                if value is None:
-                    # When the container resolves the object, it will
-                    # check for property injections and handle them
-                    pass
+                # If property not yet injected and we have a container, 
+                # try to resolve from container
+                if value is None and hasattr(obj, '_container'):
+                    container = getattr(obj, '_container')
+                    try:
+                        resolved_value = container.resolve(service_type)
+                        setattr(obj, backing_field, resolved_value)
+                        return resolved_value
+                    except Exception as e:
+                        # Fall back to returning None if resolution fails
+                        pass
                 
                 return value
                 
@@ -61,6 +72,7 @@ def inject_property(service_type: Type):
         return PropertyDescriptor()
     
     return decorator
+
 def inject_method(params: Dict[str, Type]):
     """Decorator to inject dependencies as method parameters."""
     def decorator(method):
@@ -138,16 +150,21 @@ def register_module(container):
                     resolution_strategy=resolution_strategy
                 )
                 
-                # Add property injections
+                # Add property injections if they exist - FIX: properly look up the descriptor
                 property_injections = getattr(member, '__di_property_injections__', {})
-                for prop_name, prop_type in property_injections.items():
-                    module._container._descriptors[member][0].property_injections[prop_name] = prop_type
+                if property_injections:
+                    descriptor = module._container._get_descriptor(member)
+                    if descriptor:
+                        for prop_name, prop_type in property_injections.items():
+                            descriptor.property_injections[prop_name] = prop_type
                 
                 # Add method injections
-                for method_name, method in inspect.getmembers(member, inspect.isfunction):
-                    if hasattr(method, '__di_inject_params__'):
-                        params = getattr(method, '__di_inject_params__')
-                        module._container._descriptors[member][0].method_injections[method_name] = params
+                method_injections = getattr(member, '__di_method_injections__', {})
+                if method_injections:
+                    descriptor = module._container._get_descriptor(member)
+                    if descriptor:
+                        for method_name, params in method_injections.items():
+                            descriptor.method_injections[method_name] = params
         
         # Register the module with the container
         container.register_module(module)
