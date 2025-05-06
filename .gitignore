@@ -135,7 +135,11 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-
+# Allow .env/activate but not .env/.venv
+!.env/
+.env/*
+!.env/activate
+!.env/venv
 # Spyder project settings
 .spyderproject
 .spyproject

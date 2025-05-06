@@ -1,0 +1,26 @@
+#!/bin/env bash
+export GIT_DIR=$(readlink -f $(git rev-parse --git-dir))
+export REPOROOT=$(git rev-parse --show-toplevel)
+export PYTHONPATH="$REPOROOT/src"
+export PYTHONPATH="$PYTHONPATH"
+
+# echo "Copying githooks to $GIT_DIR/hooks"
+# cp $REPOROOT/githooks/* $GIT_DIR/hooks/
+
+# Check if the script is being sourced
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    echo "[WARNING] - $(date +"%F %T") > This script must be sourced, not executed. Usage: 'source $0'"
+    exit 1
+fi
+
+# Get the directory of the script
+if [[ -z "$BASH_SOURCE" ]]; then
+    SCRIPT_DIR="$(realpath $(dirname $0))"
+else
+    SCRIPT_DIR="$(realpath $(dirname ${BASH_SOURCE[0]}))"
+fi
+
+# Call the script to activate the virtual environment,
+# install dependencies, and install the package in editable mode
+echo "$SCRIPT_DIR"
+source .env/venv "$1" "$SCRIPT_DIR"

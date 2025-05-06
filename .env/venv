@@ -1,0 +1,66 @@
+#!/bin/env bash
+
+SCRIPT_DIR="$2"
+
+if [[ ! -d "$SCRIPT_DIR" ]]; then
+    SCRIPT_DIR="$PWD"
+fi
+
+function cleanup {
+    # Remove stored credentials
+    if [[ -f "$SCRIPT_DIR/.env" ]]; then
+        echo "[INFO] - $(date +"%F %T") > Removing stored credentials..."
+
+        rm "$SCRIPT_DIR/.env"
+    fi
+
+    # Deactivate virtualenv
+    if [[ -n "$VIRTUAL_ENV" ]]; then
+        echo "[INFO] - $(date +"%F %T") > Deactivating virtualenv..."
+
+        deactivate
+    fi
+
+    # Remove virtualenv
+    if [[ -d "$SCRIPT_DIR/.venv" ]]; then
+        echo "[INFO] - $(date +"%F %T") > Removing virtualenv..."
+
+        rm -rf $SCRIPT_DIR/.venv
+    fi
+
+    echo "[INFO] - $(date +"%F %T") > Environment successfully cleaned up"
+}
+
+function activate_virtualenv {
+
+    echo "[INFO] - $(date +"%F %T") > Creating virtualenv..."
+
+    # Create virtualenv
+    if [[ ! -d "$SCRIPT_DIR/.venv" ]]; then
+        python3 -m venv $SCRIPT_DIR/.venv
+    else
+        echo "[INFO] - $(date +"%F %T") > Virtualenv already exists"
+    fi
+
+    # Activate virtualenv
+    source "$SCRIPT_DIR/.venv/bin/activate"
+
+    # Install dependencies
+    echo "[INFO] - $(date +"%F %T") > Installing dependencies..."
+
+    pip install --upgrade pip
+    REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+    python3 -m pip install -U -r "$REPO_ROOT/requirements _dev.txt"
+    python3 -m pip install --quiet -U -r "$REPO_ROOT/requirements.txt"
+
+    echo "[INFO] - $(date +"%F %T") > Environment successfully activated"
+}
+
+if [[ "$1" == "cleanup" ]]; then
+    cleanup
+elif [[ "$1" == "activate" ]] || [[ "$1" == "" ]]; then
+    activate_virtualenv
+else
+    echo
+    echo "[WARNING] - $(date +"%F %T") > Usage: $0 [cleanup|activate]"
+fi
