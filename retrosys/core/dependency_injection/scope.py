@@ -1,4 +1,4 @@
-from typing import Dict, Any, Type
+from typing import Dict, Any, Type, Tuple
 from .project_types import T, Lifecycle, ContainerProtocol
 import inspect
 
@@ -20,7 +20,7 @@ class Scope:
             Creates a child container from the parent container.
         """
         self._container = parent_container.create_child_container()
-        self._instances: Dict[Type, Any] = {}
+        self._instances: Dict[Tuple[Type, str], Any] = {}  # Changed to use Type+context_key as key
 
     def resolve(self, service_type: Type[T], context_key: str = "") -> T:
         """Resolves a service instance within the current scope.
@@ -42,15 +42,16 @@ class Scope:
             Updates the internal instances cache if the resolved service has a
             scoped lifecycle.
         """
-        if service_type in self._instances:
-            return self._instances[service_type]
+        cache_key = (service_type, context_key)  # Create composite key with type and context
+        if cache_key in self._instances:
+            return self._instances[cache_key]
 
         instance = self._container.resolve(service_type, context_key)
 
         # Cache scoped instances
         descriptor = self._container._get_descriptor(service_type, context_key)
         if descriptor and descriptor.lifecycle == Lifecycle.SCOPED:
-            self._instances[service_type] = instance
+            self._instances[cache_key] = instance
 
         return instance
 
@@ -74,15 +75,16 @@ class Scope:
             Updates the internal instances cache if the resolved service has a
             scoped lifecycle.
         """
-        if service_type in self._instances:
-            return self._instances[service_type]
+        cache_key = (service_type, context_key)  # Create composite key with type and context
+        if cache_key in self._instances:
+            return self._instances[cache_key]
 
         instance = await self._container.resolve_async(service_type, context_key)
 
         # Cache scoped instances
         descriptor = self._container._get_descriptor(service_type, context_key)
         if descriptor and descriptor.lifecycle == Lifecycle.SCOPED:
-            self._instances[service_type] = instance
+            self._instances[cache_key] = instance
 
         return instance
 
@@ -128,8 +130,8 @@ class Scope:
             - Catches and logs any exceptions during disposal
             - Clears the internal instances cache
         """
-        for service_type, instance in list(self._instances.items()):
-            descriptor = self._container._get_descriptor(service_type)
+        for (service_type, context_key), instance in list(self._instances.items()):
+            descriptor = self._container._get_descriptor(service_type, context_key)
             if descriptor and descriptor.lifecycle == Lifecycle.SCOPED:
                 if hasattr(instance, "dispose"):
                     try:
