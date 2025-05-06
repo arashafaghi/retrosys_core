@@ -29,7 +29,7 @@ from .lazy import Lazy
 from .scope import Scope
 
 # IMPORTANT: Import Container first, then Module
-from .dependency_injection import Container
+from .container import Container
 # Only after Container is imported, import Module
 from .module import Module
 

@@ -49,7 +49,7 @@ class PostgresDatabase(IDatabase):
         print(f"Executing query: {sql}")
         #Simulate query delay
         await asyncio.sleep(0.05)
-       # Return dummy data
+        # Return dummy data
         if "users" in sql.lower():
             return [{"id": 1, "name": "John"}, {"id": 2, "name": "Jane"}]
         return []

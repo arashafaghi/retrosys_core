@@ -5,9 +5,9 @@ from .project_types import Lifecycle, ResolutionStrategy
 from .module import Module
 
 def injectable(lifecycle: Lifecycle = Lifecycle.SINGLETON, 
-               context_key: str = "",
-               is_async: bool = False,
-               resolution_strategy: ResolutionStrategy = ResolutionStrategy.EAGER):
+                context_key: str = "",
+                is_async: bool = False,
+                resolution_strategy: ResolutionStrategy = ResolutionStrategy.EAGER):
     """Decorator to mark a class as injectable."""
     def decorator(cls):
         # Store DI metadata on the class
@@ -64,7 +64,6 @@ def inject_property(service_type: Type):
                 setattr(obj, f"_{prop_name}", value)
             
             def __set_name__(self, owner, name):
-                # Store injection metadata on the class
                 if not hasattr(owner, '__di_property_injections__'):
                     setattr(owner, '__di_property_injections__', {})
                 getattr(owner, '__di_property_injections__')[name] = service_type
@@ -76,12 +75,11 @@ def inject_property(service_type: Type):
 def inject_method(params: Dict[str, Type]):
     """Decorator to inject dependencies as method parameters."""
     def decorator(method):
-        method_name = method.__name__
-        sig = inspect.signature(method)
+        # method_name = method.__name__
+        # sig = inspect.signature(method)
         
         @functools.wraps(method)
         def wrapper(self, **kwargs):
-            # Create method parameters with injected dependencies
             method_params = {}
             
             # Inject dependencies that aren't provided in kwargs
@@ -101,7 +99,7 @@ def inject_method(params: Dict[str, Type]):
                         method_params[param_name] = container.resolve(param_type)
                     else:
                         # Without container, try to lookup from registry if registered 
-                        from retrosys.core.dependency_injection.dependency_injection import Container
+                        from retrosys.core.dependency_injection.container import Container
                         c = Container()
                         method_params[param_name] = c.resolve(param_type)
             
@@ -114,7 +112,6 @@ def inject_method(params: Dict[str, Type]):
         # Store metadata for the DI container to use during resolution
         setattr(wrapper, '__di_method_params__', params)
         
-        # Store on the class when the method is added to it
         def __set_name__(owner, name):
             if not hasattr(owner, '__di_method_injections__'):
                 setattr(owner, '__di_method_injections__', {})

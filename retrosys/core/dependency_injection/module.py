@@ -1,9 +1,9 @@
 from typing import Optional, Type, Union, Callable, Awaitable, Any, TYPE_CHECKING
 from .project_types import T, Lifecycle, FactoryCallable, AsyncFactoryCallable, ResolutionStrategy
-from .errors import DependencyNotFoundError, AsyncInitializationError
+from .errors import DependencyNotFoundError
 
 if TYPE_CHECKING:
-    from .dependency_injection import Container
+    from .container import Container
 
 import inspect
 
@@ -12,7 +12,7 @@ class Module:
     
     def __init__(self, name: str = ""):
         """Initialize a new module."""
-        from .dependency_injection import Container
+        from .container import Container
         self._container = Container()
         self.parent_container: Optional['Container'] = None
         self.name = name
@@ -75,14 +75,12 @@ class Module:
             
     async def resolve_async(self, service_type: Type[T], context_key: str = "") -> T:
         """Async resolve a service from the module."""
-        # First check local module container
+        
         descriptor = self._container._get_descriptor(service_type, context_key)
         if descriptor:
             return await self._container.resolve_async(service_type, context_key)
-        
-        # Then check parent container if available
+
         if self.parent_container:
             return await self.parent_container.resolve_async(service_type, context_key)
         
-        # If no parent and not found locally, raise exception
         raise DependencyNotFoundError(f"No registration found for {service_type.__name__}")
