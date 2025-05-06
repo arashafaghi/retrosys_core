@@ -13,15 +13,19 @@ import inspect
 import warnings
 import threading
 import logging
-import networkx as nx
-import matplotlib.pyplot as plt
 
 from .project_types import (
-    T, FactoryCallable, AsyncFactoryCallable, Lifecycle, ResolutionStrategy
+    T,
+    FactoryCallable,
+    AsyncFactoryCallable,
+    Lifecycle,
+    ResolutionStrategy,
 )
 from .service_descriptor import ServiceDescriptor
 from .errors import (
-    CircularDependencyError, DependencyNotFoundError, AsyncInitializationError
+    CircularDependencyError,
+    DependencyNotFoundError,
+    AsyncInitializationError,
 )
 from .lazy import Lazy
 from .scope import Scope
@@ -74,23 +78,29 @@ class Container:
                 on_init=on_init,
                 on_destroy=on_destroy,
             )
-            
+
             # Cache property injections for performance
             if impl_type not in self._property_injection_cache:
                 self._property_injection_cache[impl_type] = {}
-                if hasattr(impl_type, '__di_property_injections__'):
-                    self._property_injection_cache[impl_type] = getattr(impl_type, '__di_property_injections__', {})
-            
+                if hasattr(impl_type, "__di_property_injections__"):
+                    self._property_injection_cache[impl_type] = getattr(
+                        impl_type, "__di_property_injections__", {}
+                    )
+
             # Apply cached property injections
-            for prop_name, prop_type in self._property_injection_cache[impl_type].items():
+            for prop_name, prop_type in self._property_injection_cache[
+                impl_type
+            ].items():
                 descriptor.property_injections[prop_name] = prop_type
-                    
+
             # Cache method injections for performance
             if impl_type not in self._method_injection_cache:
                 self._method_injection_cache[impl_type] = {}
-                if hasattr(impl_type, '__di_method_injections__'):
-                    self._method_injection_cache[impl_type] = getattr(impl_type, '__di_method_injections__', {})
-            
+                if hasattr(impl_type, "__di_method_injections__"):
+                    self._method_injection_cache[impl_type] = getattr(
+                        impl_type, "__di_method_injections__", {}
+                    )
+
             # Apply cached method injections
             for method_name, params in self._method_injection_cache[impl_type].items():
                 descriptor.method_injections[method_name] = params
@@ -100,13 +110,8 @@ class Container:
                 self._descriptors[service_type] = []
 
             self._descriptors[service_type].append(descriptor)
-            
-            self._logger.debug(
-                f"Registered {service_type.__name__} with implementation {impl_type.__name__}"
-            )
-        
-        return self
 
+        return self
 
     def register_instance(self, service_type: Type[T], instance: T) -> "Container":
         """Register an existing instance with the container."""
@@ -122,7 +127,6 @@ class Container:
                 self._descriptors[service_type] = []
 
             self._descriptors[service_type].append(descriptor)
-            self._logger.debug(f"Registered instance of {service_type.__name__}")
             return self
 
     def register_factory(
@@ -137,7 +141,11 @@ class Container:
         if inspect.iscoroutinefunction(factory):
             is_async = True
         return self.register(
-            service_type, lifecycle=lifecycle, factory=factory, is_async=is_async, context_key=context_key
+            service_type,
+            lifecycle=lifecycle,
+            factory=factory,
+            is_async=is_async,
+            context_key=context_key,
         )
 
     def lazy_resolve(self, service_type: Type[T], context_key: str = "") -> Lazy[T]:
@@ -147,48 +155,64 @@ class Container:
     def resolve(self, service_type: Type[T], context_key: str = "") -> T:
         """Synchronously resolve a service from the container."""
         with self._lock:
-            #test mode, check for mocks first
+            # test mode, check for mocks first
             if self._test_mode and service_type in self._mock_instances:
                 return self._mock_instances[service_type]
 
             # Check for circular dependencies
             if service_type in self._resolution_stack:
-                path = " -> ".join([t.__name__ for t in self._resolution_stack] + [service_type.__name__])
+                path = " -> ".join(
+                    [t.__name__ for t in self._resolution_stack]
+                    + [service_type.__name__]
+                )
                 raise CircularDependencyError(
                     f"Circular dependency detected: {path}\n"
-                    f"Resolution stack (newest first):\n" + 
-                    "\n".join([f"  {i+1}. {t.__name__}" for i, t in enumerate(reversed(self._resolution_stack))])
+                    f"Resolution stack (newest first):\n"
+                    + "\n".join(
+                        [
+                            f"  {i + 1}. {t.__name__}"
+                            for i, t in enumerate(reversed(self._resolution_stack))
+                        ]
+                    )
                 )
-            
-            #resolution stack for circular dependency detection
+
+            # resolution stack for circular dependency detection
             self._resolution_stack.append(service_type)
 
             try:
                 descriptor = self._get_descriptor(service_type, context_key)
-                
+
                 # Just-in-time registration for injectable classes
-                if not descriptor and hasattr(service_type, '__di_injectable__') and getattr(service_type, '__di_injectable__'):
-                    self._logger.debug(f"Auto-registering {service_type.__name__}")
-                    
+                if (
+                    not descriptor
+                    and hasattr(service_type, "__di_injectable__")
+                    and getattr(service_type, "__di_injectable__")
+                ):
+
                     # Extract metadata (this added from decorator)
-                    lifecycle = getattr(service_type, '__di_lifecycle__', Lifecycle.SINGLETON)
-                    ctx_key = getattr(service_type, '__di_context_key__', context_key)
-                    is_async = getattr(service_type, '__di_is_async__', False)
-                    resolution_strategy = getattr(service_type, '__di_resolution_strategy__', 
-                                            ResolutionStrategy.EAGER)
-                    
+                    lifecycle = getattr(
+                        service_type, "__di_lifecycle__", Lifecycle.SINGLETON
+                    )
+                    ctx_key = getattr(service_type, "__di_context_key__", context_key)
+                    is_async = getattr(service_type, "__di_is_async__", False)
+                    resolution_strategy = getattr(
+                        service_type,
+                        "__di_resolution_strategy__",
+                        ResolutionStrategy.EAGER,
+                    )
+
                     # Register automatically
                     self.register(
-                        service_type, 
+                        service_type,
                         lifecycle=lifecycle,
                         context_key=ctx_key,
                         is_async=is_async,
-                        resolution_strategy=resolution_strategy
+                        resolution_strategy=resolution_strategy,
                     )
-                    
+
                     # update descriptor
                     descriptor = self._get_descriptor(service_type, context_key)
-                
+
                 if not descriptor:
                     raise DependencyNotFoundError(
                         f"No registration found for {service_type.__name__}"
@@ -199,8 +223,6 @@ class Container:
                     and descriptor.instance is not None
                 ):
                     return descriptor.instance
-
-                self._logger.debug(f"Resolving {service_type.__name__}")
 
                 # Handle async services
                 if descriptor.is_async:
@@ -214,31 +236,42 @@ class Container:
                 else:
                     # Create a new instance using constructor injection
                     instance = self._create_instance(descriptor.implementation_type)
-                    
+
                 # Apply property injections using cache
                 impl_type = descriptor.implementation_type
                 if impl_type not in self._property_injection_cache:
                     self._property_injection_cache[impl_type] = {}
-                    if hasattr(impl_type, '__di_property_injections__'):
-                        self._property_injection_cache[impl_type] = getattr(impl_type, '__di_property_injections__', {})
-                
-                for prop_name, prop_type in self._property_injection_cache[impl_type].items():
+                    if hasattr(impl_type, "__di_property_injections__"):
+                        self._property_injection_cache[impl_type] = getattr(
+                            impl_type, "__di_property_injections__", {}
+                        )
+
+                for prop_name, prop_type in self._property_injection_cache[
+                    impl_type
+                ].items():
                     try:
-                        setattr(instance, prop_name, self.resolve(prop_type, context_key))
+                        setattr(
+                            instance, prop_name, self.resolve(prop_type, context_key)
+                        )
                     except DependencyNotFoundError as e:
                         raise DependencyNotFoundError(
                             f"Failed to inject property '{prop_name}' of type {prop_type.__name__} "
                             f"into {service_type.__name__} instance: {str(e)}",
-                            prop_type, context_key
+                            prop_type,
+                            context_key,
                         ) from e
 
                 # Apply method injections using cache
                 if impl_type not in self._method_injection_cache:
                     self._method_injection_cache[impl_type] = {}
-                    if hasattr(impl_type, '__di_method_injections__'):
-                        self._method_injection_cache[impl_type] = getattr(impl_type, '__di_method_injections__', {})
-                
-                for method_name, param_types in self._method_injection_cache[impl_type].items():
+                    if hasattr(impl_type, "__di_method_injections__"):
+                        self._method_injection_cache[impl_type] = getattr(
+                            impl_type, "__di_method_injections__", {}
+                        )
+
+                for method_name, param_types in self._method_injection_cache[
+                    impl_type
+                ].items():
                     method = getattr(instance, method_name)
                     params = {
                         name: self.resolve(typ, context_key)
@@ -262,14 +295,15 @@ class Container:
     async def resolve_async(self, service_type: Type[T], context_key: str = "") -> T:
         """Asynchronously resolve a service from the container."""
         with self._lock:
-            #test mode, check for mocks first
+            # test mode, check for mocks first
             if self._test_mode and service_type in self._mock_instances:
                 return self._mock_instances[service_type]
 
             # Check for circular dependencies
             if service_type in self._resolution_stack:
                 path = " -> ".join(
-                    [t.__name__ for t in self._resolution_stack] + [service_type.__name__]
+                    [t.__name__ for t in self._resolution_stack]
+                    + [service_type.__name__]
                 )
                 raise CircularDependencyError(f"Circular dependency detected: {path}")
 
@@ -278,30 +312,37 @@ class Container:
 
             try:
                 descriptor = self._get_descriptor(service_type, context_key)
-                
+
                 # Just-in-time registration for injectable classes
-                if not descriptor and hasattr(service_type, '__di_injectable__') and getattr(service_type, '__di_injectable__'):
-                    self._logger.debug(f"Auto-registering {service_type.__name__}")
-                    
+                if (
+                    not descriptor
+                    and hasattr(service_type, "__di_injectable__")
+                    and getattr(service_type, "__di_injectable__")
+                ):
+
                     # Extract metadata from the class
-                    lifecycle = getattr(service_type, '__di_lifecycle__', Lifecycle.SINGLETON)
-                    ctx_key = getattr(service_type, '__di_context_key__', context_key)
-                    is_async = getattr(service_type, '__di_is_async__', False)
-                    resolution_strategy = getattr(service_type, '__di_resolution_strategy__', 
-                                            ResolutionStrategy.EAGER)
-                    
+                    lifecycle = getattr(
+                        service_type, "__di_lifecycle__", Lifecycle.SINGLETON
+                    )
+                    ctx_key = getattr(service_type, "__di_context_key__", context_key)
+                    is_async = getattr(service_type, "__di_is_async__", False)
+                    resolution_strategy = getattr(
+                        service_type,
+                        "__di_resolution_strategy__",
+                        ResolutionStrategy.EAGER,
+                    )
+
                     # Register it automatically
                     self.register(
-                        service_type, 
+                        service_type,
                         lifecycle=lifecycle,
                         context_key=ctx_key,
                         is_async=is_async,
-                        resolution_strategy=resolution_strategy
+                        resolution_strategy=resolution_strategy,
                     )
-                    
-                    
+
                     descriptor = self._get_descriptor(service_type, context_key)
-                
+
                 if not descriptor:
                     raise DependencyNotFoundError(
                         f"No registration found for {service_type.__name__}"
@@ -312,8 +353,6 @@ class Container:
                     and descriptor.instance is not None
                 ):
                     return descriptor.instance
-
-                self._logger.debug(f"Async resolving {service_type.__name__}")
 
                 if descriptor.factory:
                     if descriptor.is_async:
@@ -328,10 +367,14 @@ class Container:
                 impl_type = descriptor.implementation_type
                 if impl_type not in self._property_injection_cache:
                     self._property_injection_cache[impl_type] = {}
-                    if hasattr(impl_type, '__di_property_injections__'):
-                        self._property_injection_cache[impl_type] = getattr(impl_type, '__di_property_injections__', {})
-                
-                for prop_name, prop_type in self._property_injection_cache[impl_type].items():
+                    if hasattr(impl_type, "__di_property_injections__"):
+                        self._property_injection_cache[impl_type] = getattr(
+                            impl_type, "__di_property_injections__", {}
+                        )
+
+                for prop_name, prop_type in self._property_injection_cache[
+                    impl_type
+                ].items():
                     prop_descriptor = self._get_descriptor(prop_type, context_key)
                     if prop_descriptor and prop_descriptor.is_async:
                         setattr(
@@ -340,14 +383,20 @@ class Container:
                             await self.resolve_async(prop_type, context_key),
                         )
                     else:
-                        setattr(instance, prop_name, self.resolve(prop_type, context_key))
+                        setattr(
+                            instance, prop_name, self.resolve(prop_type, context_key)
+                        )
 
                 if impl_type not in self._method_injection_cache:
                     self._method_injection_cache[impl_type] = {}
-                    if hasattr(impl_type, '__di_method_injections__'):
-                        self._method_injection_cache[impl_type] = getattr(impl_type, '__di_method_injections__', {})
-                
-                for method_name, param_types in self._method_injection_cache[impl_type].items():
+                    if hasattr(impl_type, "__di_method_injections__"):
+                        self._method_injection_cache[impl_type] = getattr(
+                            impl_type, "__di_method_injections__", {}
+                        )
+
+                for method_name, param_types in self._method_injection_cache[
+                    impl_type
+                ].items():
                     method = getattr(instance, method_name)
                     params = {}
                     for name, typ in param_types.items():
@@ -380,7 +429,9 @@ class Container:
         if not descriptors:
             # Check if it's registered in any modules
             for module in self._modules.values():
-                descriptor = module._container._get_descriptor(service_type, context_key)
+                descriptor = module._container._get_descriptor(
+                    service_type, context_key
+                )
                 if descriptor:
                     return descriptor
             return None
@@ -396,7 +447,7 @@ class Container:
             if not hasattr(implementation_type, "__init__"):
                 instance = implementation_type()
                 # set container reference for property injections
-                setattr(instance, '_container', self)
+                setattr(instance, "_container", self)
                 # Apply property injections after construction
                 self._apply_property_injections(instance, implementation_type)
                 return instance
@@ -406,7 +457,7 @@ class Container:
             if init is object.__init__:  # Default constructor
                 instance = implementation_type()
                 # set container reference for property injections
-                setattr(instance, '_container', self)
+                setattr(instance, "_container", self)
                 # Apply property injections after construction
                 self._apply_property_injections(instance, implementation_type)
                 return instance
@@ -414,7 +465,7 @@ class Container:
             # Get parameter annotations using cached signature
             if implementation_type not in self._signature_cache:
                 self._signature_cache[implementation_type] = inspect.signature(init)
-            
+
             sig = self._signature_cache[implementation_type]
             params = {}
 
@@ -422,10 +473,10 @@ class Container:
                 if name == "self":
                     continue
 
-                #Skip parameters with default values
+                # Skip parameters with default values
                 if param.default is not inspect.Parameter.empty:
                     continue  # Parameter has default, don't inject it
-                    
+
                 annotation = param.annotation
                 if annotation is inspect.Parameter.empty:
                     # Cannot resolve parameter without type annotation
@@ -433,19 +484,19 @@ class Container:
                         f"Cannot resolve parameter '{name}' for {implementation_type.__name__} "
                         f"without type annotation"
                     )
-                
+
                 # Handle string annotations (forward references)
                 if isinstance(annotation, str):
                     # Try multiple resolution strategies
                     resolved = False
-                    
+
                     # 1. check if any registered type has this name
                     for registered_type in self._descriptors:
                         if registered_type.__name__ == annotation:
                             annotation = registered_type
                             resolved = True
                             break
-                        
+
                     # 2. evaluate in module context
                     if not resolved:
                         impl_module = inspect.getmodule(implementation_type)
@@ -455,20 +506,24 @@ class Container:
                                 module_dict = impl_module.__dict__.copy()
                                 for service_type in self._descriptors:
                                     module_dict[service_type.__name__] = service_type
-                                    
+
                                 # Try to evaluate
-                                annotation = eval(annotation, module_dict, implementation_type.__dict__)
+                                annotation = eval(
+                                    annotation,
+                                    module_dict,
+                                    implementation_type.__dict__,
+                                )
                                 resolved = True
                         except (NameError, SyntaxError):
                             pass  # Will be handled in the next check
-                    
+
                     # If we still couldn't resolve it
                     if not resolved:
                         raise DependencyNotFoundError(
                             f"Cannot resolve forward reference '{annotation}' for parameter '{name}' "
                             f"in {implementation_type.__name__}.__init__"
                         )
-                
+
                 # Check for primitive types
                 primitive_types = (str, int, float, bool, list, dict, tuple, set)
                 if annotation in primitive_types:
@@ -484,9 +539,9 @@ class Container:
                 else:
                     # Regular dependency
                     params[name] = self.resolve(annotation)
-            
+
             instance = implementation_type(**params)
-            setattr(instance, '_container', self)
+            setattr(instance, "_container", self)
 
             # Apply property injections
             self._apply_property_injections(instance, implementation_type)
@@ -503,21 +558,27 @@ class Container:
         # Get the cached property injections
         if impl_type not in self._property_injection_cache:
             self._property_injection_cache[impl_type] = {}
-            if hasattr(impl_type, '__di_property_injections__'):
-                self._property_injection_cache[impl_type] = getattr(impl_type, '__di_property_injections__', {})
-        
+            if hasattr(impl_type, "__di_property_injections__"):
+                self._property_injection_cache[impl_type] = getattr(
+                    impl_type, "__di_property_injections__", {}
+                )
+
         # Apply each property injection
         for prop_name, prop_type in self._property_injection_cache[impl_type].items():
             try:
                 # Check if the property is already set
                 backing_field = f"_{prop_name}"
-                if not hasattr(instance, backing_field) or getattr(instance, backing_field) is None:
+                if (
+                    not hasattr(instance, backing_field)
+                    or getattr(instance, backing_field) is None
+                ):
                     setattr(instance, prop_name, self.resolve(prop_type))
             except DependencyNotFoundError as e:
                 raise DependencyNotFoundError(
                     f"Failed to inject property '{prop_name}' of type {prop_type.__name__} "
                     f"into {impl_type.__name__} instance: {str(e)}",
-                    prop_type, ""
+                    prop_type,
+                    "",
                 ) from e
 
     async def _create_instance_async(self, implementation_type: Type[T]) -> T:
@@ -534,7 +595,7 @@ class Container:
             # Get parameter annotations using cached signature
             if implementation_type not in self._signature_cache:
                 self._signature_cache[implementation_type] = inspect.signature(init)
-                
+
             sig = self._signature_cache[implementation_type]
             params = {}
 
@@ -557,13 +618,13 @@ class Container:
                 # Handle string annotations (forward references)
                 if isinstance(annotation, str):
                     resolved = False
-                    
+
                     for registered_type in self._descriptors:
                         if registered_type.__name__ == annotation:
                             annotation = registered_type
                             resolved = True
                             break
-                        
+
                     if not resolved:
                         impl_module = inspect.getmodule(implementation_type)
                         try:
@@ -571,12 +632,16 @@ class Container:
                                 module_dict = impl_module.__dict__.copy()
                                 for service_type in self._descriptors:
                                     module_dict[service_type.__name__] = service_type
-                                    
-                                annotation = eval(annotation, module_dict, implementation_type.__dict__)
+
+                                annotation = eval(
+                                    annotation,
+                                    module_dict,
+                                    implementation_type.__dict__,
+                                )
                                 resolved = True
                         except (NameError, SyntaxError):
-                            pass 
-                    
+                            pass
+
                     if not resolved:
                         raise DependencyNotFoundError(
                             f"Cannot resolve forward reference '{annotation}' for parameter '{name}' "
@@ -600,15 +665,15 @@ class Container:
                         params[name] = await self.resolve_async(annotation)
                     else:
                         params[name] = self.resolve(annotation)
-            
+
             instance = implementation_type(**params)
-            setattr(instance, '_container', self)
+            setattr(instance, "_container", self)
             return instance
-        
+
         except Exception as e:
             raise DependencyNotFoundError(
                 f"Error creating async instance of {implementation_type.__name__}: {str(e)}"
-            ) from e 
+            ) from e
 
     def create_scope(self) -> Scope:
         """Create a new dependency scope."""
@@ -617,21 +682,21 @@ class Container:
     def register_module(self, module: "Module", namespace: str = "") -> "Container":
         """Register a module with the container."""
         # If no namespace is provided, use the module's name
-        if not namespace and hasattr(module, 'name'):
+        if not namespace and hasattr(module, "name"):
             namespace = module.name
-        
+
         if namespace in self._modules:
             warnings.warn(
                 f"Module namespace '{namespace}' is already registered. Overwriting."
             )
         self._modules[namespace] = module
         module.parent_container = self
-        
+
         # Copy module registrations to parent container with proper handling of injections
         for service_type, descriptors in module._container._descriptors.items():
             if service_type not in self._descriptors:
                 self._descriptors[service_type] = []
-            
+
             # Add descriptors from module to parent container
             for descriptor in descriptors:
                 # Create a copy of the descriptor to avoid reference issues
@@ -645,36 +710,42 @@ class Container:
                     is_async=descriptor.is_async,
                     resolution_strategy=descriptor.resolution_strategy,
                     on_init=descriptor.on_init,
-                    on_destroy=descriptor.on_destroy
+                    on_destroy=descriptor.on_destroy,
                 )
-                
+
                 # Copy property injections
                 for prop_name, prop_type in descriptor.property_injections.items():
                     parent_descriptor.property_injections[prop_name] = prop_type
-                
+
                 # Copy method injections
                 for method_name, params in descriptor.method_injections.items():
                     parent_descriptor.method_injections[method_name] = params.copy()
-                
+
                 # Add to parent container
                 self._descriptors[service_type].append(parent_descriptor)
-                
+
                 # Update cache
                 impl_type = descriptor.implementation_type
-                if impl_type and hasattr(impl_type, '__di_property_injections__'):
+                if impl_type and hasattr(impl_type, "__di_property_injections__"):
                     if impl_type not in self._property_injection_cache:
                         self._property_injection_cache[impl_type] = {}
-                    
-                    for prop_name, prop_type in getattr(impl_type, '__di_property_injections__', {}).items():
+
+                    for prop_name, prop_type in getattr(
+                        impl_type, "__di_property_injections__", {}
+                    ).items():
                         self._property_injection_cache[impl_type][prop_name] = prop_type
-                
-                if impl_type and hasattr(impl_type, '__di_method_injections__'):
+
+                if impl_type and hasattr(impl_type, "__di_method_injections__"):
                     if impl_type not in self._method_injection_cache:
                         self._method_injection_cache[impl_type] = {}
-                    
-                    for method_name, params in getattr(impl_type, '__di_method_injections__', {}).items():
-                        self._method_injection_cache[impl_type][method_name] = params.copy()
-        
+
+                    for method_name, params in getattr(
+                        impl_type, "__di_method_injections__", {}
+                    ).items():
+                        self._method_injection_cache[impl_type][method_name] = (
+                            params.copy()
+                        )
+
         return self
 
     def create_child_container(self) -> "Container":
@@ -704,146 +775,6 @@ class Container:
         self._mock_instances[service_type] = instance
         return self
 
-    def visualize_dependency_graph(self, filename: str = "dependency_graph.png") -> None:
-        """Generate and save a visualization of the dependency graph."""
-        import math  # Add this import at the top of the file
-        
-        graph = self.generate_dependency_graph()
-
-        # Create a directed graph
-        G = nx.DiGraph()
-
-        # Add all nodes
-        for service_name in graph:
-            G.add_node(service_name)
-
-        # Add all edges
-        for service_name, dependencies in graph.items():
-            for dep in dependencies:
-                # Only add edges when both nodes exist
-                if dep in graph:
-                    G.add_edge(service_name, dep)
-
-        
-        plt.figure(figsize=(15, 10))
-        
-        # Try different layouts based on graph size
-        if len(G.nodes) < 10:
-            
-            try:
-                pos = nx.nx_pydot.graphviz_layout(G, prog='dot')
-            except Exception:
-                # Fall back to spring layout if graphviz not available
-                pos = nx.spring_layout(G, k=1.5/math.sqrt(len(G.nodes)), iterations=50, seed=42)
-        else:
-            # For larger graphs, use spring layout with tuned parameters
-            pos = nx.spring_layout(G, k=1.5/math.sqrt(len(G.nodes)), iterations=50, seed=42)
-        
-        # Draw nodes with different colors based on node type
-        node_colors = []
-        for node in G.nodes:
-            if node.startswith('I'):  # Interfaces often start with I
-                node_colors.append('lightgreen')
-            elif len(list(G.predecessors(node))) == 0:  # Root services
-                node_colors.append('orange')
-            elif len(list(G.successors(node))) == 0:  # Leaf services
-                node_colors.append('lightblue')
-            else:  # Middle-tier services
-                node_colors.append('lightgray')
-        
-        # Draw nodes
-        nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=1500, alpha=0.8)
-        
-        # Draw edges with arrows
-        nx.draw_networkx_edges(G, pos, width=1.0, alpha=0.5, arrows=True, arrowsize=15)
-        
-        # Draw labels with a white background for readability
-        labels = {node: node for node in G.nodes}
-        bbox_props = dict(boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.8)
-        nx.draw_networkx_labels(G, pos, labels, font_size=10, bbox=bbox_props)
-        
-        plt.title("Dependency Injection Graph")
-        plt.axis('off')  # Turn off axis
-        plt.tight_layout()
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
-        plt.close()
-
-        self._logger.info(f"Dependency graph saved to {filename}")
-    
-    def generate_dependency_graph(self) -> Dict[str, List[str]]:
-        """Generate a visualization of the dependency graph."""
-        graph = {}
-        
-        primitive_types = {str, int, float, bool, list, dict, set, tuple}
-
-
-        # Add all registered types as nodes
-        for service_type in self._descriptors:
-            if service_type in primitive_types or service_type.__module__ == 'builtins':
-                continue
-
-            service_name = service_type.__name__
-            graph[service_name] = []
-
-        # Add dependencies as edges
-        for service_type, descriptors in self._descriptors.items():
-            service_name = service_type.__name__
-            for descriptor in descriptors:
-                impl_type = descriptor.implementation_type
-                if impl_type:
-                    self._add_dependencies_to_graph(graph, service_name, impl_type)
-
-        # Add module services
-        for module_name, module in self._modules.items():
-            for service_type, descriptors in getattr(module._container, '_descriptors', {}).items():
-                
-                if service_type in primitive_types or service_type.__module__ == 'builtins':
-                    continue
-                service_name = service_type.__name__
-                if service_name not in graph:
-                    graph[service_name] = []
-                
-                for descriptor in descriptors:
-                    impl_type = descriptor.implementation_type
-                    if impl_type:
-                        self._add_dependencies_to_graph(graph, service_name, impl_type)
-        
-        
-        return graph
-
-    def _add_dependencies_to_graph(self, graph: Dict[str, List[str]], source_name: str, implementation_type: Type) -> None:
-        """Add dependencies of a type to the graph."""
-        
-        # Primitive types to exclude from dependency graph
-        primitive_types = {str, int, float, bool, list, dict, set, tuple}
-        
-        # Add constructor dependencies
-        if hasattr(implementation_type, "__init__") and implementation_type.__init__ is not object.__init__:
-            # Use signature cache for performance
-            if implementation_type not in self._signature_cache:
-                self._signature_cache[implementation_type] = inspect.signature(implementation_type.__init__)
-                
-            sig = self._signature_cache[implementation_type]
-            
-            for name, param in sig.parameters.items():
-                if name != "self" and param.annotation is not inspect.Parameter.empty:
-                    # Handle Lazy dependencies
-                    if getattr(param.annotation, "__origin__", None) == Lazy:
-                        dep_type = param.annotation.__args__[0]
-                        # Skip primitive types
-                        if dep_type in primitive_types or dep_type.__module__ == 'builtins':
-                            continue
-                        dep_name = dep_type.__name__
-                    else:
-                        dep_type = param.annotation
-                        # Skip primitive types
-                        if dep_type in primitive_types or dep_type.__module__ == 'builtins':
-                            continue
-                        dep_name = dep_type.__name__
-
-                    if dep_name not in graph[source_name]:
-                        graph[source_name].append(dep_name)
-
     async def dispose(self) -> None:
         """Dispose of all services with on_destroy handlers."""
         for descriptors in self._descriptors.values():
@@ -857,16 +788,3 @@ class Container:
                         await descriptor.on_destroy(descriptor.instance)
                     else:
                         descriptor.on_destroy(descriptor.instance)
-
-    def register_injectables(self, module) -> "Container":
-        """Register all classes with @injectable decorators in a module."""
-        for name, obj in inspect.getmembers(module):
-            if inspect.isclass(obj) and getattr(obj, '__di_injectable__', False):
-                lifecycle = getattr(obj, '__di_lifecycle__', Lifecycle.SINGLETON)
-                context_key = getattr(obj, '__di_context_key__', "")
-                is_async = getattr(obj, '__di_is_async__', False)
-                resolution_strategy = getattr(obj, '__di_resolution_strategy__', 
-                                            ResolutionStrategy.EAGER)
-                self.register(obj, lifecycle=lifecycle, context_key=context_key, 
-                            is_async=is_async, resolution_strategy=resolution_strategy)
-        return self
