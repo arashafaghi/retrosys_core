@@ -3,6 +3,10 @@ import setuptools
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
+# Get documentation requirements
+with open("requirements-docs.txt", "r", encoding="utf-8") as f:
+    docs_requirements = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+
 setuptools.setup(
     name="retrosys-core",
     version="0.1.1",
@@ -27,4 +31,7 @@ setuptools.setup(
     install_requires=[
         
     ],
+    extras_require={
+        "docs": docs_requirements,
+    },
 )
