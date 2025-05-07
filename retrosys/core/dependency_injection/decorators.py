@@ -20,10 +20,9 @@ def injectable(
     Args:
         lifecycle: Determines how instances are created and cached.
         context_key: Optional key for contextual binding, allowing multiple
-        implementations of the same type. Defaults to an empty string.
+            implementations of the same type. Defaults to an empty string.
         is_async: Whether this service requires asynchronous initialization.
         resolution_strategy: Whether to resolve the service eagerly or lazily.
-
 
     Returns:
         A decorator function that attaches DI metadata to the decorated class.
@@ -69,15 +68,7 @@ def inject_property(service_type: Type):
     Returns:
         A property descriptor that resolves and returns the dependency when accessed.
 
-    Side Effects:
-        Creates a backing field (with the same name as the property but prefixed with '_')
-        to store the resolved dependency.
-        Registers the property in the class's __di_property_injections__ dictionary
-        for automatic resolution during instance creation.
-        When accessed, attempts to resolve the dependency from the container
-        if not already resolved.
-
-    Usage Example:
+    Example:
         .. code-block:: python
 
             class MyService:
@@ -148,15 +139,7 @@ def inject_method(params: Dict[str, Type]):
     Returns:
         A decorated method that automatically resolves and injects dependencies.
 
-    Side Effects:
-        Wraps the original method to intercept calls and inject dependencies.
-        Registers the method in the class's __di_method_injections__ dictionary
-        for automatic resolution during instance creation.
-        When called, resolves dependencies from the container if not explicitly provided.
-        Attempts to find a container reference from various common attribute names
-        or creates a new container if none is found.
-
-    Usage Example:
+    Example:
         .. code-block:: python
 
             class MyService:
@@ -226,9 +209,6 @@ def register_module(container):
     decorator. It creates a Module instance and registers all discovered injectable
     components with that module, then registers the module with the provided container.
 
-    This enables organizing related services into modules for better structuring of
-    the dependency injection system.
-
     Args:
         container: The dependency injection container to register the module with.
             This should be an instance of Container.
@@ -240,13 +220,7 @@ def register_module(container):
     Raises:
         TypeError: If the decorated object is not a class.
 
-    Side Effects:
-        Creates a new Module instance named after the decorated class.
-        Registers all injectable members of the class with the module.
-        Registers any property and method injections for the members.
-        Registers the completed module with the provided container.
-
-    Usage Example:
+    Example:
         .. code-block:: python
 
             @register_module(container)
