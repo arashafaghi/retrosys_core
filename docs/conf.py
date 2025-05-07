@@ -58,7 +58,7 @@ html_theme_options = {
 }
 
 # Add any paths that contain custom static files
-html_static_path = ['source/_static']  # Fixed: Updated path
+html_static_path = []  
 
 # Enable autodoc to load modules
 autodoc_member_order = 'bysource'
