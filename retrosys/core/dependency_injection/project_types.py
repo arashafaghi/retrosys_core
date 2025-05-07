@@ -31,9 +31,9 @@ class Lifecycle(Enum):
             scope and reused within that scope.
     """
 
-    SINGLETON = auto()  # One instance per container
-    TRANSIENT = auto()  # New instance per resolution
-    SCOPED = auto()  # One instance per scope (e.g., request)
+    SINGLETON = auto()  
+    TRANSIENT = auto()  
+    SCOPED = auto() 
 
 
 class ResolutionStrategy(Enum):
@@ -49,8 +49,8 @@ class ResolutionStrategy(Enum):
             This defers initialization costs but may delay discovery of configuration issues.
     """
 
-    EAGER = auto()  # Resolve immediately
-    LAZY = auto()  # Resolve only when needed
+    EAGER = auto()  
+    LAZY = auto()
 
 
 class ContainerProtocol(Protocol):

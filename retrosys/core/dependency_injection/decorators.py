@@ -79,11 +79,11 @@ def inject_property(service_type: Type):
 
     Side Effects:
         - Creates a backing field (with the same name as the property but prefixed with '_')
-          to store the resolved dependency.
+            to store the resolved dependency.
         - Registers the property in the class's __di_property_injections__ dictionary
-          for automatic resolution during instance creation.
+            for automatic resolution during instance creation.
         - When accessed, attempts to resolve the dependency from the container
-          if not already resolved.
+            if not already resolved.
 
     Usage Example:
         ```python
@@ -160,10 +160,10 @@ def inject_method(params: Dict[str, Type]):
     Side Effects:
         - Wraps the original method to intercept calls and inject dependencies.
         - Registers the method in the class's __di_method_injections__ dictionary
-          for automatic resolution during instance creation.
+            for automatic resolution during instance creation.
         - When called, resolves dependencies from the container if not explicitly provided.
         - Attempts to find a container reference from various common attribute names
-          or creates a new container if none is found.
+            or creates a new container if none is found.
 
     Usage Example:
         ```python
