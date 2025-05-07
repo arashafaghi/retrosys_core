@@ -63,7 +63,8 @@ def inject_property(service_type: Type):
     by using a backing field to store the resolved instance.
 
     Args:
-        service_type: The type of service to be injected when the property is accessed.This should be a type (class) that is registered with the container.
+        service_type: The type of service to be injected when the property is accessed.
+            This should be a type (class) that is registered with the container.
 
     Returns:
         A property descriptor that resolves and returns the dependency when accessed.
@@ -77,12 +78,12 @@ def inject_property(service_type: Type):
         if not already resolved.
 
     Usage Example:
-        ```python
-        class MyService:
-            @inject_property(IDatabase)
-            def database(self):
-                pass  # The method body is not used
-        ```
+        .. code-block:: python
+
+            class MyService:
+                @inject_property(IDatabase)
+                def database(self):
+                    pass  # The method body is not used
     """
 
     def decorator(prop_fn):
@@ -141,7 +142,8 @@ def inject_method(params: Dict[str, Type]):
     in the method call.
 
     Args:
-        params: A dictionary mapping parameter names to their types. Each entry specifies a parameter to be injected and the type of service to resolve from the container.
+        params: A dictionary mapping parameter names to their types. Each entry specifies
+            a parameter to be injected and the type of service to resolve from the container.
 
     Returns:
         A decorated method that automatically resolves and injects dependencies.
@@ -155,15 +157,14 @@ def inject_method(params: Dict[str, Type]):
         or creates a new container if none is found.
 
     Usage Example:
-        ```python
-        class MyService:
-            @inject_method({'database': IDatabase, 'logger': ILogger})
-            def process_data(self, data, database, logger):
-                # database and logger are automatically injected
-                pass
-        ```
-    """
+        .. code-block:: python
 
+            class MyService:
+                @inject_method({'database': IDatabase, 'logger': ILogger})
+                def process_data(self, data, database, logger):
+                    # database and logger are automatically injected
+                    pass
+    """
     def decorator(method):
         # method_name = method.__name__
         # sig = inspect.signature(method)
@@ -229,7 +230,8 @@ def register_module(container):
     the dependency injection system.
 
     Args:
-        container: The dependency injection container to register the module with. This should be an instance of Container.
+        container: The dependency injection container to register the module with.
+            This should be an instance of Container.
 
     Returns:
         A decorator function that processes a class and returns it after registering
@@ -245,19 +247,18 @@ def register_module(container):
         Registers the completed module with the provided container.
 
     Usage Example:
-        ```python
-        @register_module(container)
-        class DataModule:
-            @injectable()
-            class DatabaseService:
-                pass
+        .. code-block:: python
 
-            @injectable()
-            class RepositoryService:
-                pass
-        ```
+            @register_module(container)
+            class DataModule:
+                @injectable()
+                class DatabaseService:
+                    pass
+
+                @injectable()
+                class RepositoryService:
+                    pass
     """
-
     def decorator(module_class):
         if not inspect.isclass(module_class):
             raise TypeError("@register_module can only be applied to classes")
