@@ -7,11 +7,8 @@ if [[ ! -d "$SCRIPT_DIR" ]]; then
 fi
 
 function cleanup {
-    # Remove stored credentials
     if [[ -f "$SCRIPT_DIR/.env" ]]; then
-        echo "[INFO] - $(date +"%F %T") > Removing stored credentials..."
-
-        rm "$SCRIPT_DIR/.env"
+        echo "[INFO] - $(date +"%F %T") > Removing virtual env..."
     fi
 
     # Deactivate virtualenv

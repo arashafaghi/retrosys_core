@@ -730,13 +730,18 @@ class Container:
     async def _create_instance_async(self, implementation_type: Type[T]) -> T:
         """Create a new instance with constructor injection, supporting async dependencies."""
         try:
-            if not hasattr(implementation_type, "__init__"):
-                return implementation_type()
+            # Check if __init__ is an async method
+            init_is_async = False
+            if hasattr(implementation_type, "__init__"):
+                init = implementation_type.__init__
+                if inspect.iscoroutinefunction(init):
+                    init_is_async = True
 
-            # Get the constructor
-            init = implementation_type.__init__
-            if init is object.__init__:  # Default constructor
-                return implementation_type()
+            # Handle classes without __init__ or with the default __init__
+            if not hasattr(implementation_type, "__init__") or implementation_type.__init__ is object.__init__:
+                instance = implementation_type()
+                setattr(instance, "_container", self)
+                return instance
 
             # Get parameter annotations using cached signature
             if implementation_type not in self._signature_cache:
@@ -808,11 +813,24 @@ class Container:
                     # Get the descriptor to check if it's async
                     descriptor = self._get_descriptor(annotation)
                     if descriptor and descriptor.is_async:
+                        # The key fix: always use resolve_async for async dependencies
                         params[name] = await self.resolve_async(annotation)
                     else:
-                        params[name] = self.resolve(annotation)
+                        try:
+                            params[name] = self.resolve(annotation)
+                        except AsyncInitializationError:
+                            # Handle the case where the service is async but not marked as such
+                            params[name] = await self.resolve_async(annotation)
 
-            instance = implementation_type(**params)
+            # Create the instance - handle async __init__ properly
+            if init_is_async:
+                # For async __init__, create the instance first, then call __init__ manually
+                instance = implementation_type.__new__(implementation_type)
+                await init(instance, **params)
+            else:
+                # Regular constructor call for non-async __init__
+                instance = implementation_type(**params)
+                
             setattr(instance, "_container", self)
             return instance
 

@@ -277,30 +277,37 @@ Manage dependencies for specific operations:
             self.user_id = None
             self.request_id = None
 
-    @injectable()
+    @injectable(lifecycle=Lifecycle.SCOPED)
     class UserRepository:
         def __init__(self, context: RequestContext):
             self.context = context
-        
+            print(f"UserRepository created with context: {id(context)}")
+
         def get_user_data(self):
             return f"Data for user {self.context.user_id}"
 
-    # Create container and scope
+
+    # Create container
     container = Container()
-    scope = container.create_scope()
-
-    # Configure scope-specific data
-    request_context = scope.resolve(RequestContext)
-    request_context.user_id = "user123"
-    request_context.request_id = "req456"
-
-    # Resolve service within scope
-    repo = scope.resolve(UserRepository)
-    print(repo.get_user_data())  # Output: Data for user user123
-
-    # Different scope gets different instance
+    
+    # First scope
+    scope1 = container.create_scope()
+    context1 = scope1.resolve(RequestContext)
+    print(f"Context1 ID: {id(context1)}")
+    context1.user_id = "user123"
+    
+    # Resolve repository in the same scope
+    repo1 = scope1.resolve(UserRepository)
+    print(f"Repo1 using context ID: {id(repo1.context)}")
+    print(repo1.get_user_data())
+    
+    # Second scope
     scope2 = container.create_scope()
-    request_context2 = scope2.resolve(RequestContext)
-    request_context2.user_id = "user999"
+    context2 = scope2.resolve(RequestContext)
+    print(f"Context2 ID: {id(context2)}")
+    context2.user_id = "user999"
+    
+    # Resolve repository in the second scope
     repo2 = scope2.resolve(UserRepository)
-    print(repo2.get_user_data())  # Output: Data for user user999
+    print(f"Repo2 using context ID: {id(repo2.context)}")
+    print(await repo2.get_user_data())
