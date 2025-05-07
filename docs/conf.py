@@ -3,7 +3,7 @@ import sys
 from datetime import datetime
 
 # Add the project root directory to the path so that Sphinx can find the modules
-sys.path.insert(0, os.path.abspath('../..'))
+sys.path.insert(0, os.path.abspath('..'))  # Fixed: Changed from '../..' to '..'
 
 # Project information
 project = 'RetroSys Core'
@@ -40,13 +40,13 @@ source_suffix = {
 }
 
 # The master toctree document
-master_doc = 'index'
+master_doc = 'source/index'  # Fixed: Point to the correct index file
 
 # The language for content
 language = 'en'
 
 # List of patterns to exclude from source
-exclude_patterns = []
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # The theme to use for HTML and HTML Help pages
 html_theme = 'sphinx_rtd_theme'
@@ -58,7 +58,7 @@ html_theme_options = {
 }
 
 # Add any paths that contain custom static files
-html_static_path = ['_static']
+html_static_path = ['source/_static']  # Fixed: Updated path
 
 # Enable autodoc to load modules
 autodoc_member_order = 'bysource'
