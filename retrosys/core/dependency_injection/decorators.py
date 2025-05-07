@@ -63,8 +63,7 @@ def inject_property(service_type: Type):
     by using a backing field to store the resolved instance.
 
     Args:
-        service_type: The type of service to be injected when the property is accessed.
-        This should be a type (class) that is registered with the container.
+        service_type: The type of service to be injected when the property is accessed.This should be a type (class) that is registered with the container.
 
     Returns:
         A property descriptor that resolves and returns the dependency when accessed.
@@ -142,9 +141,7 @@ def inject_method(params: Dict[str, Type]):
     in the method call.
 
     Args:
-        params: A dictionary mapping parameter names to their types. Each entry
-        specifies a parameter to be injected and the type of service to resolve
-        from the container.
+        params: A dictionary mapping parameter names to their types. Each entry specifies a parameter to be injected and the type of service to resolve from the container.
 
     Returns:
         A decorated method that automatically resolves and injects dependencies.
@@ -232,8 +229,7 @@ def register_module(container):
     the dependency injection system.
 
     Args:
-        container: The dependency injection container to register the module with.
-        This should be an instance of Container.
+        container: The dependency injection container to register the module with. This should be an instance of Container.
 
     Returns:
         A decorator function that processes a class and returns it after registering
