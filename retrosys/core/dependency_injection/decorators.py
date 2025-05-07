@@ -18,10 +18,9 @@ def injectable(
     class should be instantiated, cached, and resolved by the container.
 
     Args:
-        lifecycle: Determines how instances are created and cached. Options are:
-
+        lifecycle: Determines how instances are created and cached.
         context_key: Optional key for contextual binding, allowing multiple
-            implementations of the same type. Defaults to an empty string.
+        implementations of the same type. Defaults to an empty string.
         is_async: Whether this service requires asynchronous initialization.
         resolution_strategy: Whether to resolve the service eagerly or lazily.
 
@@ -65,7 +64,7 @@ def inject_property(service_type: Type):
 
     Args:
         service_type: The type of service to be injected when the property is accessed.
-            This should be a type (class) that is registered with the container.
+        This should be a type (class) that is registered with the container.
 
     Returns:
         A property descriptor that resolves and returns the dependency when accessed.
@@ -144,8 +143,8 @@ def inject_method(params: Dict[str, Type]):
 
     Args:
         params: A dictionary mapping parameter names to their types. Each entry
-            specifies a parameter to be injected and the type of service to resolve
-            from the container.
+        specifies a parameter to be injected and the type of service to resolve
+        from the container.
 
     Returns:
         A decorated method that automatically resolves and injects dependencies.
@@ -234,7 +233,7 @@ def register_module(container):
 
     Args:
         container: The dependency injection container to register the module with.
-            This should be an instance of Container.
+        This should be an instance of Container.
 
     Returns:
         A decorator function that processes a class and returns it after registering
